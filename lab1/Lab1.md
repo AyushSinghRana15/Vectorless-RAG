@@ -137,20 +137,18 @@ You will need two API keys. Click the links below to obtain them:
 | `GROQ_API_KEY` | [https://console.groq.com/keys](https://console.groq.com/keys) |
 | `PAGEINDEX_API_KEY` | [https://www.pageindex.ai](https://www.pageindex.ai) |
 
-Set them as environment variables or paste them into a `.env` file in the same directory as this notebook:
-
-```
-GROQ_API_KEY=gsk_...
-PAGEINDEX_API_KEY=...
-```
+The notebook reads environment variables from a `.env` file or your shell.
+If either key is missing, you will be prompted to enter it securely.
 
 ### Initialize the Clients
 
 ```python
 from pathlib import Path
+import getpass
 import json
 import os
 import re
+import time
 from typing import Any
 
 from dotenv import load_dotenv
@@ -162,9 +160,16 @@ load_dotenv()
 
 DATA_DIR = Path("data")
 CACHE_DIR = DATA_DIR / "cache"
-PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY", "").strip()
-LLM_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 LLM_BASE_URL = "https://api.groq.com/openai/v1"
+
+PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY", "").strip()
+if not PAGEINDEX_API_KEY:
+    PAGEINDEX_API_KEY = getpass.getpass("Enter your PAGEINDEX_API_KEY: ").strip()
+
+LLM_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+if not LLM_API_KEY:
+    LLM_API_KEY = getpass.getpass("Enter your GROQ_API_KEY: ").strip()
+
 PDF_NAME = os.getenv("PDF_NAME")
 
 MODELS = {
@@ -179,11 +184,6 @@ for key, (name, desc) in MODELS.items():
 choice = input("Enter 1 or 2: ").strip()
 LLM_MODEL = MODELS.get(choice, MODELS["1"])[0]
 print(f"Using model: {LLM_MODEL}")
-
-if not PAGEINDEX_API_KEY:
-    print("Set PAGEINDEX_API_KEY before running the PageIndex cells.")
-if not LLM_API_KEY:
-    print("Set GROQ_API_KEY before running the retrieval and answer cells.")
 
 pi_client = PageIndexClient(api_key=PAGEINDEX_API_KEY) if PAGEINDEX_API_KEY else None
 llm_client = AsyncOpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL) if LLM_API_KEY else None
