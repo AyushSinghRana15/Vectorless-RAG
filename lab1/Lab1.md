@@ -42,10 +42,20 @@ Each step is modular and inspectable, making the system auditable end-to-end.
 User Question + PDF
         │
         ▼
-PageIndex Client ──── submit PDF ────►  PageIndex API
+PageIndex Client ──── check cache ────►  data/cache/{stem}_tree.json
+        │                                         │
+        │                                    cache hit? ──yes──► load cached tree
+        │                                         │
+        │                                        no
+        │                                         │
+        ▼                                         │
+submit PDF ──────────────────────────────►  PageIndex API
         │                                         │
         │                                    document tree
         │◄─────────────────────────────────────────
+        │
+        ▼
+save tree to cache
         │
         ▼
 LLM (Groq) ──── reason over tree ────►  selected node IDs + reasoning
@@ -57,7 +67,7 @@ Evidence Extractor ──── collect node text ────►  evidence pass
 LLM (Groq) ──── generate answer ────►  final answer + explainability
 ```
 
-1. **PageIndex Client** submits the PDF (or loads a cached tree) and retrieves a hierarchical tree of titles, summaries, and text.
+1. **PageIndex Client** checks for a cached tree in `data/cache/`. If found, it loads the cached tree directly. If not, it submits the PDF to PageIndex, waits for processing, retrieves the tree, and saves it to cache for future runs.
 2. **Tree Search LLM** receives the tree (without full text) and selects the node IDs most likely to contain the answer, producing a retrieval rationale.
 3. **Evidence Extractor** pulls the full text from selected nodes.
 4. **Answer LLM** uses only the evidence text and original question to produce a structured JSON response with the answer and explainability.
