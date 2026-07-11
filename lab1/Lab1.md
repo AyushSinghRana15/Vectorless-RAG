@@ -332,87 +332,77 @@ print(f"Indexed nodes: {len(node_map)}")
 
 Now ask a question about the PDF. The system will retrieve relevant evidence and generate an answer with explainability.
 
-#### 1) Enter your question and run tree search
-
 ```python
 QUESTION = input("Enter your question about the PDF: ").strip()
-if not QUESTION:
-    raise ValueError("A question is required to continue.")
 
-retrieval_system_prompt = """
-You are a document retrieval assistant for a vectorless RAG system.
+result = await answer_question(QUESTION)
 
-You will receive a user question and a PageIndex tree made of node titles and summaries.
-Select only the node IDs that are likely to contain answer-bearing evidence.
+print("=" * 70)
+print("QUESTION")
+print("=" * 70)
+print(result["question"])
+
+print()
+print("=" * 70)
+print("RETRIEVAL EXPLAINABILITY")
+print("=" * 70)
+print("Selected node IDs:", result["selected_node_ids"])
+print(result["retrieval_thinking"])
+
+print()
+print("=" * 70)
+print("EVIDENCE PREVIEW")
+print("=" * 70)
+print(preview_text(result["evidence_text"], limit=3000))
+
+print()
+print("=" * 70)
+print("FINAL ANSWER")
+print("=" * 70)
+print(result["final_answer"])
+
+print()
+print("=" * 70)
+print("EXPLAINABILITY")
+print("=" * 70)
+print(json.dumps(result["explainability"], indent=2))
+
+print()
+print("=" * 70)
+print("GROUNDEDNESS CHECK")
+print("=" * 70)
+if result["evidence_text"]:
+    groundedness_system_prompt = """
+You are a fact-checking assistant. You will be given an answer and the 
+evidence text it was supposed to be based on. Determine whether the 
+answer's claims are actually supported by the evidence.
 
 Return valid JSON with this shape:
 {
-  "thinking": "short, evidence-based retrieval explanation",
-  "node_list": ["node_id_1", "node_id_2"]
+  "grounded": true or false,
+  "reason": "one short sentence explaining your judgment"
 }
 
 Do not output markdown, prose, or extra keys.
-Keep the explanation brief and grounded in the tree.
 """.strip()
 
-retrieval_user_prompt = f"""
-Question:
-{QUESTION}
+    groundedness_user_prompt = f"""
+Answer to check:
+{result['final_answer']}
 
-PageIndex tree:
-{tree_as_prompt_text(tree)}
+Evidence it should be based on:
+{result['evidence_text']}
 """.strip()
 
-retrieval_response = await call_llm(retrieval_system_prompt, retrieval_user_prompt)
-retrieval_json = extract_json(retrieval_response)
-selected_node_ids = retrieval_json.get("node_list", [])
-
-print("Selected node IDs:", selected_node_ids)
-print("Retrieval explainability:")
-print(retrieval_json.get("thinking", ""))
-```
-
-#### 2) Extract evidence and generate the final answer
-
-```python
-evidence_text = collect_node_text(selected_node_ids)
-if not evidence_text.strip():
-    raise RuntimeError("No evidence text was collected. Check the selected node IDs and tree mapping.")
-
-print("Evidence preview:\n")
-print(preview_text(evidence_text, limit=3000))
-
-final_system_prompt = """
-You are a careful assistant answering questions about a PDF document.
-
-Use only the evidence text provided by the notebook.
-Do not invent facts or rely on outside knowledge.
-Return valid JSON with this shape:
-{
-  "final_answer": "concise answer for the user",
-  "explainability": {
-    "retrieval_summary": "brief note about why the selected evidence is relevant",
-    "evidence_used": ["short evidence note 1", "short evidence note 2"]
-  }
-}
-
-Keep the explanation short and grounded in the provided context.
-""".strip()
-
-final_user_prompt = f"""
-Question:
-{QUESTION}
-
-Evidence context:
-{evidence_text}
-""".strip()
-
-final_response = await call_llm(final_system_prompt, final_user_prompt)
-final_json = extract_json(final_response)
-
-print("Final answer:\n")
-print(final_json.get("final_answer", ""))
-
-print("\nExplainability:\n")
-print(json.dumps(final_json.get("explainability", {}), indent=2))
+    try:
+        groundedness_json = await call_llm_and_parse(groundedness_system_prompt, groundedness_user_prompt, model=LLM_MODEL)
+        if groundedness_json.get('grounded') is False:
+            print("WARNING: This answer may not be fully supported by the retrieved evidence.")
+            print(f"Reason: {groundedness_json.get('reason', 'No reason given.')}")
+        else:
+            print("PASSED — answer is supported by the retrieved evidence.")
+    except Exception:
+        print("(Groundedness check could not be completed.)")
+else:
+    print("(No evidence to check against.)")
 ```
