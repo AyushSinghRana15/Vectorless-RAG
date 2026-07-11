@@ -247,9 +247,11 @@ print(f"Using PDF: {pdf_path}")
 
 #### 2) Build the PageIndex tree
 
-Submit the PDF to PageIndex and retrieve the generated document tree. The tree is cached locally in `data/cache/` so subsequent runs skip the PageIndex API call for the same document. If the document is still processing, the cell raises an error — rerun after a few seconds.
+Submit the PDF to PageIndex and retrieve the generated document tree. The tree is cached locally in `data/cache/` so subsequent runs skip the PageIndex API call for the same document. If the document is still processing, the cell polls with a progress bar until ready.
 
 ```python
+import time
+
 CACHE_DIR.mkdir(exist_ok=True)
 cache_path = CACHE_DIR / f"{pdf_path.stem}_tree.json"
 
@@ -266,11 +268,24 @@ else:
         raise RuntimeError(f"Could not read doc_id from PageIndex response: {submitted}")
 
     print(f"Submitted document id: {doc_id}")
+    print("Waiting for PageIndex to process the document...")
 
-    if not pi_client.is_retrieval_ready(doc_id):
+    poll_interval = 5
+    max_wait = 300
+    elapsed = 0
+    spinner = ["|", "/", "-", "\\"]
+    while elapsed < max_wait:
+        if pi_client.is_retrieval_ready(doc_id):
+            break
+        idx = (elapsed // poll_interval) % len(spinner)
+        print(f"\r  {spinner[idx]}  Waiting... {elapsed}s / {max_wait}s", end="", flush=True)
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+    else:
         raise RuntimeError(
-            "PageIndex is still processing this document. Rerun this cell after the tree is ready."
+            f"PageIndex did not finish within {max_wait}s. Rerun this cell later."
         )
+    print(f"\r  Done! Processed in {elapsed}s.{' ' * 20}")
 
     tree_response = pi_client.get_tree(doc_id, node_summary=True)
     tree = tree_response.get("result", tree_response)
