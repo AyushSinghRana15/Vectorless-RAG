@@ -57,7 +57,7 @@ Evidence Extractor ──── collect node text ────►  evidence pass
 LLM (Groq) ──── generate answer ────►  final answer + explainability
 ```
 
-1. **PageIndex Client** submits the PDF and retrieves a hierarchical tree of titles, summaries, and text.
+1. **PageIndex Client** submits the PDF (or loads a cached tree) and retrieves a hierarchical tree of titles, summaries, and text.
 2. **Tree Search LLM** receives the tree (without full text) and selects the node IDs most likely to contain the answer, producing a retrieval rationale.
 3. **Evidence Extractor** pulls the full text from selected nodes.
 4. **Answer LLM** uses only the evidence text and original question to produce a structured JSON response with the answer and explainability.
@@ -84,7 +84,7 @@ The system also prints:
 
 | Layer | Technology |
 |-------|------------|
-| LLM | Meta Llama 3 70B via Groq (`llama3-70b-8192`) — free OpenAI-compatible endpoint |
+| LLM | Meta Llama 3 via Groq — choose between `llama-3.3-70b-versatile` (larger) and `llama-3.1-8b-instant` (faster) at runtime |
 | Document Indexing | [PageIndex](https://www.pageindex.ai) — hierarchical document tree generation |
 | LLM Client | OpenAI Python SDK (compatible with Groq's endpoint) |
 | PDF Processing | PyMuPDF (`pymupdf`) |
@@ -161,11 +161,24 @@ import pageindex.utils as pi_utils
 load_dotenv()
 
 DATA_DIR = Path("data")
+CACHE_DIR = DATA_DIR / "cache"
 PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY", "").strip()
 LLM_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 LLM_BASE_URL = "https://api.groq.com/openai/v1"
-LLM_MODEL = os.getenv("LLM_MODEL", "llama3-70b-8192")
 PDF_NAME = os.getenv("PDF_NAME")
+
+MODELS = {
+    "1": ("llama-3.3-70b-versatile", "Llama 3.3 70B — larger, more capable"),
+    "2": ("llama-3.1-8b-instant", "Llama 3.1 8B — faster, lighter"),
+}
+
+print("Choose an LLM model:")
+for key, (name, desc) in MODELS.items():
+    print(f"  {key}. {name} — {desc}")
+
+choice = input("Enter 1 or 2: ").strip()
+LLM_MODEL = MODELS.get(choice, MODELS["1"])[0]
+print(f"Using model: {LLM_MODEL}")
 
 if not PAGEINDEX_API_KEY:
     print("Set PAGEINDEX_API_KEY before running the PageIndex cells.")
@@ -234,26 +247,36 @@ print(f"Using PDF: {pdf_path}")
 
 #### 2) Build the PageIndex tree
 
-Submit the PDF to PageIndex and retrieve the generated document tree. If the document is still processing, the cell raises an error — rerun after a few seconds.
+Submit the PDF to PageIndex and retrieve the generated document tree. The tree is cached locally in `data/cache/` so subsequent runs skip the PageIndex API call for the same document. If the document is still processing, the cell raises an error — rerun after a few seconds.
 
 ```python
-if pi_client is None:
-    raise RuntimeError("PAGEINDEX_API_KEY is not configured.")
+CACHE_DIR.mkdir(exist_ok=True)
+cache_path = CACHE_DIR / f"{pdf_path.stem}_tree.json"
 
-submitted = pi_client.submit_document(str(pdf_path))
-doc_id = submitted.get("doc_id") or submitted.get("result", {}).get("doc_id")
-if not doc_id:
-    raise RuntimeError(f"Could not read doc_id from PageIndex response: {submitted}")
+if cache_path.exists():
+    print(f"Loading cached tree from {cache_path}")
+    tree = json.loads(cache_path.read_text())
+else:
+    if pi_client is None:
+        raise RuntimeError("PAGEINDEX_API_KEY is not configured.")
 
-print(f"Submitted document id: {doc_id}")
+    submitted = pi_client.submit_document(str(pdf_path))
+    doc_id = submitted.get("doc_id") or submitted.get("result", {}).get("doc_id")
+    if not doc_id:
+        raise RuntimeError(f"Could not read doc_id from PageIndex response: {submitted}")
 
-if not pi_client.is_retrieval_ready(doc_id):
-    raise RuntimeError(
-        "PageIndex is still processing this document. Rerun this cell after the tree is ready."
-    )
+    print(f"Submitted document id: {doc_id}")
 
-tree_response = pi_client.get_tree(doc_id, node_summary=True)
-tree = tree_response.get("result", tree_response)
+    if not pi_client.is_retrieval_ready(doc_id):
+        raise RuntimeError(
+            "PageIndex is still processing this document. Rerun this cell after the tree is ready."
+        )
+
+    tree_response = pi_client.get_tree(doc_id, node_summary=True)
+    tree = tree_response.get("result", tree_response)
+
+    cache_path.write_text(json.dumps(tree))
+    print(f"Tree cached to {cache_path}")
 
 print("Tree ready. Top-level preview:")
 pi_utils.print_tree(tree[:2] if isinstance(tree, list) else tree)
