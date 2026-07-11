@@ -31,8 +31,8 @@ Each step is modular and inspectable, making the system auditable end-to-end.
 
 | Item | Detail |
 |------|--------|
-| PDF document | Any PDF file placed in a local `data/` folder |
-| User question | Natural-language question about the PDF (e.g., _"What are the main findings in Section 3?"_) |
+| PDF document | One or more PDF files placed in a local `data/` folder — selected via an interactive dropdown |
+| User question | Natural-language question about the PDF, entered via an interactive text box (e.g., _"What are the main findings in Section 3?"_) |
 | `GROQ_API_KEY` | Free API key from [console.groq.com/keys](https://console.groq.com/keys) — used for LLM inference |
 | `PAGEINDEX_API_KEY` | API key from [www.pageindex.ai](https://www.pageindex.ai) — used for document tree generation |
 
@@ -121,11 +121,12 @@ The cell below installs all required Python packages:
 | `openai` | OpenAI-compatible client (used to talk to Groq's endpoint) |
 | `python-dotenv` | Loads environment variables from a `.env` file |
 | `pymupdf` | PDF parsing and text extraction |
+| `ipywidgets` | Interactive dropdown and text input UI elements |
 
 Run this cell first — it only needs to be run once per session.
 
 ```bash
-pip install -q --upgrade pageindex openai python-dotenv pymupdf
+pip install -q --upgrade pageindex openai python-dotenv pymupdf ipywidgets
 ```
 
 ### Set up your API Keys
@@ -223,24 +224,45 @@ This is the core of the lab. Follow each sub-step in order.
 
 #### 1) Load a PDF from `data/`
 
-Place a PDF in the `data/` folder before running this cell. If `PDF_NAME` is set, the notebook uses that file; otherwise it picks the first PDF found.
+Place one or more PDFs in the `data/` folder before running this cell. A dropdown menu will appear listing all available PDFs — select the one you want to process.
 
 ```python
+import ipywidgets as widgets
+from IPython.display import display, clear_output
+
 if not DATA_DIR.exists():
     raise FileNotFoundError(f"Missing data folder: {DATA_DIR.resolve()}")
 
-pdf_candidates = sorted(DATA_DIR.glob("*.pdf"))
-if not pdf_candidates:
+pdf_files = sorted(p.name for p in DATA_DIR.glob("*.pdf"))
+if not pdf_files:
     raise FileNotFoundError(f"No PDF files found in {DATA_DIR.resolve()}")
 
-if PDF_NAME:
-    matching = [path for path in pdf_candidates if path.name == PDF_NAME]
-    if not matching:
-        available = ", ".join(path.name for path in pdf_candidates)
-        raise FileNotFoundError(f"PDF_NAME={PDF_NAME!r} was not found in data/. Available files: {available}")
-    pdf_path = matching[0]
-else:
-    pdf_path = pdf_candidates[0]
+pdf_dropdown = widgets.Dropdown(
+    options=pdf_files,
+    value=pdf_files[0],
+    description='Select PDF:',
+    style={'description_width': 'initial'},
+    layout=widgets.Layout(width='500px'),
+)
+
+display(pdf_dropdown)
+
+def on_pdf_change(change):
+    global pdf_path
+    pdf_path = DATA_DIR / change['new']
+
+pdf_path = DATA_DIR / pdf_files[0]
+pdf_dropdown.observe(on_pdf_change, names='value')
+
+MAX_PDF_SIZE_MB = 20
+with open(pdf_path, 'rb') as f:
+    header = f.read(4)
+if header != b'%PDF':
+    raise ValueError(f"{pdf_path.name} does not appear to be a valid PDF file (missing %PDF signature).")
+
+size_mb = pdf_path.stat().st_size / (1024 * 1024)
+if size_mb > MAX_PDF_SIZE_MB:
+    raise ValueError(f"{pdf_path.name} is {size_mb:.1f} MB, which exceeds the {MAX_PDF_SIZE_MB} MB limit.")
 
 print(f"Using PDF: {pdf_path}")
 ```
@@ -334,12 +356,30 @@ Now ask a question about the PDF. The system will retrieve relevant evidence and
 
 #### 1) Enter your question and run tree search
 
-```python
-QUESTION = input("Enter your question about the PDF: ").strip()
-if not QUESTION:
-    raise ValueError("A question is required to continue.")
+Type your question in the text box and click **Ask** to run the full pipeline.
 
-retrieval_system_prompt = """
+```python
+question_input = widgets.Text(
+    value='',
+    placeholder='Type your question here...',
+    description='Question:',
+    style={'description_width': 'initial'},
+    layout=widgets.Layout(width='700px'),
+)
+run_button = widgets.Button(description='Ask', button_style='primary')
+output_area = widgets.Output()
+
+display(widgets.VBox([question_input, run_button, output_area]))
+
+async def on_ask_clicked(b):
+    output_area.clear_output()
+    QUESTION = question_input.value.strip()
+    if not QUESTION:
+        with output_area:
+            print('Please enter a question.')
+        return
+
+    retrieval_system_prompt = """
 You are a document retrieval assistant for a vectorless RAG system.
 
 You will receive a user question and a PageIndex tree made of node titles and summaries.
@@ -355,7 +395,7 @@ Do not output markdown, prose, or extra keys.
 Keep the explanation brief and grounded in the tree.
 """.strip()
 
-retrieval_user_prompt = f"""
+    retrieval_user_prompt = f"""
 Question:
 {QUESTION}
 
@@ -363,26 +403,17 @@ PageIndex tree:
 {tree_as_prompt_text(tree)}
 """.strip()
 
-retrieval_response = await call_llm(retrieval_system_prompt, retrieval_user_prompt)
-retrieval_json = extract_json(retrieval_response)
-selected_node_ids = retrieval_json.get("node_list", [])
+    retrieval_response = await call_llm(retrieval_system_prompt, retrieval_user_prompt)
+    retrieval_json = extract_json(retrieval_response)
+    selected_node_ids = retrieval_json.get("node_list", [])
 
-print("Selected node IDs:", selected_node_ids)
-print("Retrieval explainability:")
-print(retrieval_json.get("thinking", ""))
-```
+    evidence_text = collect_node_text(selected_node_ids)
+    if not evidence_text.strip():
+        with output_area:
+            print("No evidence text was collected. Check the selected node IDs and tree mapping.")
+        return
 
-#### 2) Extract evidence and generate the final answer
-
-```python
-evidence_text = collect_node_text(selected_node_ids)
-if not evidence_text.strip():
-    raise RuntimeError("No evidence text was collected. Check the selected node IDs and tree mapping.")
-
-print("Evidence preview:\n")
-print(preview_text(evidence_text, limit=3000))
-
-final_system_prompt = """
+    final_system_prompt = """
 You are a careful assistant answering questions about a PDF document.
 
 Use only the evidence text provided by the notebook.
@@ -399,7 +430,7 @@ Return valid JSON with this shape:
 Keep the explanation short and grounded in the provided context.
 """.strip()
 
-final_user_prompt = f"""
+    final_user_prompt = f"""
 Question:
 {QUESTION}
 
@@ -407,12 +438,19 @@ Evidence context:
 {evidence_text}
 """.strip()
 
-final_response = await call_llm(final_system_prompt, final_user_prompt)
-final_json = extract_json(final_response)
+    final_response = await call_llm(final_system_prompt, final_user_prompt)
+    final_json = extract_json(final_response)
 
-print("Final answer:\n")
-print(final_json.get("final_answer", ""))
+    with output_area:
+        print("Selected node IDs:", selected_node_ids)
+        print("\nRetrieval explainability:")
+        print(retrieval_json.get("thinking", ""))
+        print("\nEvidence preview:\n")
+        print(preview_text(evidence_text, limit=3000))
+        print("\nFinal answer:\n")
+        print(final_json.get("final_answer", ""))
+        print("\nExplainability:\n")
+        print(json.dumps(final_json.get("explainability", {}), indent=2))
 
-print("\nExplainability:\n")
-print(json.dumps(final_json.get("explainability", {}), indent=2))
+run_button.on_click(on_ask_clicked)
 ```
