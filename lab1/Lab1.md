@@ -131,11 +131,12 @@ The cell below installs all required Python packages:
 | `openai` | OpenAI-compatible client (used to talk to Groq's endpoint) |
 | `python-dotenv` | Loads environment variables from a `.env` file |
 | `pymupdf` | PDF parsing and text extraction |
+| `ipywidgets` | File upload widget and PDF selection dropdown |
 
 Run this cell first — it only needs to be run once per session.
 
 ```bash
-pip install -q --upgrade pageindex openai python-dotenv pymupdf
+pip install -q --upgrade pageindex openai python-dotenv pymupdf ipywidgets
 ```
 
 ### Set up your API Keys
@@ -233,24 +234,73 @@ This is the core of the lab. Follow each sub-step in order.
 
 #### 1) Load a PDF from `data/`
 
-Place a PDF in the `data/` folder before running this cell. If `PDF_NAME` is set, the notebook uses that file; otherwise it picks the first PDF found.
+Upload a PDF using the button, or place PDF files directly in the `data/` folder.
+The `data/` directory is created automatically if it doesn't exist.
+Then use the dropdown to select which PDF to process.
 
 ```python
-if not DATA_DIR.exists():
-    raise FileNotFoundError(f"Missing data folder: {DATA_DIR.resolve()}")
+import ipywidgets as widgets
+from IPython.display import display
 
-pdf_candidates = sorted(DATA_DIR.glob("*.pdf"))
-if not pdf_candidates:
-    raise FileNotFoundError(f"No PDF files found in {DATA_DIR.resolve()}")
+DATA_DIR.mkdir(exist_ok=True)
 
-if PDF_NAME:
-    matching = [path for path in pdf_candidates if path.name == PDF_NAME]
-    if not matching:
-        available = ", ".join(path.name for path in pdf_candidates)
-        raise FileNotFoundError(f"PDF_NAME={PDF_NAME!r} was not found in data/. Available files: {available}")
-    pdf_path = matching[0]
-else:
-    pdf_path = pdf_candidates[0]
+upload_output = widgets.Output()
+upload_button = widgets.FileUpload(
+    description='Upload PDF',
+    accept='.pdf',
+    multiple=False,
+    style={'description_width': 'initial'},
+)
+
+display(upload_button)
+
+def on_upload_change(change):
+    with upload_output:
+        upload_output.clear_output()
+        if change['new']:
+            for name, meta in change['new'].items():
+                content = meta['content']
+                save_path = DATA_DIR / name
+                save_path.write_bytes(content)
+                print(f"Saved: {save_path}")
+
+upload_button.observe(on_upload_change, names='value')
+display(upload_output)
+
+pdf_files = sorted(p.name for p in DATA_DIR.glob('*.pdf'))
+if not pdf_files:
+    raise FileNotFoundError(
+        f"No PDF files found in {DATA_DIR.resolve()}. "
+        f"Upload a PDF above or place one in the data/ folder."
+    )
+
+pdf_dropdown = widgets.Dropdown(
+    options=pdf_files,
+    value=pdf_files[0],
+    description='Select PDF:',
+    style={'description_width': 'initial'},
+    layout=widgets.Layout(width='500px'),
+)
+
+display(pdf_dropdown)
+
+pdf_path = DATA_DIR / pdf_files[0]
+
+def on_pdf_change(change):
+    global pdf_path
+    pdf_path = DATA_DIR / change['new']
+
+pdf_dropdown.observe(on_pdf_change, names='value')
+
+MAX_PDF_SIZE_MB = 20
+with open(pdf_path, 'rb') as f:
+    header = f.read(4)
+if header != b'%PDF':
+    raise ValueError(f"{pdf_path.name} does not appear to be a valid PDF file (missing %PDF signature).")
+
+size_mb = pdf_path.stat().st_size / (1024 * 1024)
+if size_mb > MAX_PDF_SIZE_MB:
+    raise ValueError(f"{pdf_path.name} is {size_mb:.1f} MB, which exceeds the {MAX_PDF_SIZE_MB} MB limit.")
 
 print(f"Using PDF: {pdf_path}")
 ```
