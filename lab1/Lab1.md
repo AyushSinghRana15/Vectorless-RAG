@@ -452,5 +452,10 @@ Evidence context:
         print("\nExplainability:\n")
         print(json.dumps(final_json.get("explainability", {}), indent=2))
 
-run_button.on_click(on_ask_clicked)
+import asyncio
+
+def on_ask_clicked_wrapper(b):
+    asyncio.ensure_future(on_ask_clicked(b))
+
+run_button.on_click(on_ask_clicked_wrapper)
 ```
