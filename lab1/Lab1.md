@@ -33,7 +33,7 @@ Each step is modular and inspectable, making the system auditable end-to-end.
 | Item | Detail |
 |------|--------|
 | PDF document | Any PDF file placed in a local `data/` folder |
-| User question | Natural-language question about the PDF (e.g., _"What are the main findings in Section 3?"_) |
+| User question | Natural-language question about the PDF |
 | `GROQ_API_KEY` | Free API key from [console.groq.com/keys](https://console.groq.com/keys) — used for LLM inference |
 | `PAGEINDEX_API_KEY` | API key from [www.pageindex.ai](https://www.pageindex.ai) — used for document tree generation |
 

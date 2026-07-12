@@ -32,8 +32,8 @@ Vectorless RAG retrieves **whole logical nodes**, preserving table structure, he
 | Item | Detail |
 |------|--------|
 | PDF document | Any complex, multi-section PDF with tables, cross-references, or structured data |
-| Cross-reference question | A multi-hop question requiring facts from multiple sections (e.g., _"What are the eligibility requirements and maximum limits?"_) |
-| Table question | A question about a table or structured data (e.g., _"What is the value for Product X in the Q3 comparison table?"_) |
+| Cross-reference question | A multi-hop question requiring facts from multiple sections |
+| Table question | A question about a table or structured data |
 | `GROQ_API_KEY` | Free API key from [console.groq.com/keys](https://console.groq.com/keys) |
 | `PAGEINDEX_API_KEY` | API key from [www.pageindex.ai](https://www.pageindex.ai) |
 
@@ -365,7 +365,7 @@ Ask a question that requires fetching facts from multiple sections of the docume
 
 ```python
 CROSS_REFERENCE_QUESTION = input(
-    "Enter a multi-hop question requiring facts from multiple sections (e.g., 'What are the eligibility requirements and maximum limits?'): "
+    "Enter a multi-hop question requiring facts from multiple sections: "
 ).strip()
 if not CROSS_REFERENCE_QUESTION:
     raise ValueError("A question is required to continue.")
@@ -556,7 +556,7 @@ print(json.dumps(answer_json.get("explainability", {}), indent=2))
 
 ```python
 TABLE_QUESTION = input(
-    "Enter a table-related question (e.g., 'What is the value for Product X in the Q3 comparison table?'): "
+    "Enter a table-related question: "
 ).strip()
 if not TABLE_QUESTION:
     raise ValueError("A question is required to continue.")
