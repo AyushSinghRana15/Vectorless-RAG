@@ -1,0 +1,177 @@
+================================================================================
+LAB 2: Multi-Hop Claims Adjudication & Benefit Tables — Sample Questions
+PDF: synthetic_insurance_policy_CMP-2026-0417-IN.pdf
+         + synthetic_medicare_plus_policy_detailed.pdf
+================================================================================
+
+SCENARIO A: MULTI-HOP CLAIMS ADJUDICATION
+(Uses CMP policy — Commercial Multi-Peril Insurance)
+These questions require retrieving facts from multiple sections and reasoning
+across them to reach a conclusion.
+--------------------------------------------------------------------------------
+
+Q: Is a water damage claim from a burst pipe at the warehouse covered under
+   this policy?
+A: Yes. Bursting or Overflowing of Water Tanks/Pipes is an Insured Peril
+   under Section 4.2 (Property Damage Coverage). The warehouse at 14
+   Industrial Area Phase II is a Covered Location per Section 10.1.
+   Requires cross-referencing: Section 4.2 (insured perils) +
+   Section 10.1 (covered locations).
+   Expected nodes: Property Damage section + Schedule of Limits.
+
+Q: If an employee is injured at the Kolkata distribution center, does the
+   Employers' Liability extension respond?
+A: Yes, subject to conditions. Section 5.3 (Employers' Liability Extension)
+   covers Bodily Injury to employees arising out of and in the course of
+   employment. The Kolkata distribution center (12 Park Street) is a Covered
+   Location per Section 10.1.
+   Requires cross-referencing: Section 5.3 (employers' liability) +
+   Section 10.1 (covered locations).
+
+Q: A customer slips on a wet floor at the Mumbai retail store and sues for
+   negligence. Is this claim covered?
+A: Yes, under Section 5 (General Liability Coverage). The claim arises from
+   an Occurrence (customer injury) connected with the Named Insured's
+   operations. Products Liability (5.2) and Employers' Liability (5.3) are
+   separate extensions — this falls under the main General Liability scope
+   (5.1). Mumbai retail store is a Covered Location per Section 10.1.
+   Requires cross-referencing: Section 5.1 (scope) + Section 2.13
+   (Occurrence definition) + Section 10.1 (locations).
+
+Q: If a cyber attack causes data breach at the Pune office, what coverage
+   applies and what are the sub-limits?
+A: Section 6 (Cyber Coverage) applies. Section 6.1 covers Network Security
+   Failure. Section 6.2 covers Data Breach Liability. Section 6.4 covers
+   Cyber Extortion (if applicable). Sub-limits are in Section 10.2(d).
+   Requires cross-referencing: Section 6.1 + 6.2 + 6.4 + Section 10.2(d).
+
+Q: A product recall is needed due to a safety defect. Is this covered?
+A: Generally excluded under Clause 7.8 (Product Recall Costs exclusion).
+   However, if Endorsement GL-05 (Product Recall Liability, Section 11.6) is
+   attached, the exclusion is carved back. Check Section 11.6 for the
+   endorsement and Section 10.2(c) for sub-limits.
+   Requires cross-referencing: Section 7.8 (exclusion) + Section 11.6
+   (endorsement) + Section 10.2(c) (sub-limits).
+
+Q: Is there coverage for a fire at the Delhi warehouse that destroys
+   inventory?
+A: Yes. Fire is an Insured Peril under Section 4.2. The Delhi warehouse
+   (45 MG Road) is a Covered Location per Section 10.1. Sum Insured for
+   Delhi is INR 25,00,00,000 per Section 10.1. Deductible applies per
+   Section 10.3.
+   Requires cross-referencing: Section 4.2 (insured perils) + Section 10.1
+   (locations/sums insured) + Section 10.3 (deductibles).
+
+Q: An employee at the Chennai facility suffers a workplace injury. Does the
+   policy cover legal defense costs if the employee sues?
+A: Yes. Section 5.3 (Employers' Liability Extension) covers the liability.
+   Section 5.4 (Legal Defense Costs) covers defense costs in addition to the
+   liability limit. Chennai facility is a Covered Location per Section 10.1.
+   Requires cross-referencing: Section 5.3 + Section 5.4 + Section 10.1.
+
+Q: What happens if the Named Insured vacates the Bangalore office for more
+   than 30 days?
+A: Per Clause 8.3 (Notice of Change in Risk), material changes such as
+   vacancy of a Covered Location exceeding 30 consecutive days must be
+   notified per Clause 9.1. Failure to notify may suspend cover for the
+   affected location only.
+   Requires cross-referencing: Clause 8.3 + Clause 9.1.
+
+Q: A cyber extortion attack targets the Hyderabad data center. What is the
+   maximum payout and what conditions apply?
+A: Section 6.4 (Cyber Extortion) covers monies paid with Insurer's prior
+   written consent, subject to Clause 6.7 (Extortion Conditions) and the
+   Sub-Limit in Section 10.2(d). The sub-limit is INR 1,50,00,000 per
+   Section 10.2(d).
+   Requires cross-referencing: Section 6.4 + Section 6.7 + Section 10.2(d).
+
+Q: Is there coverage for business interruption caused by a fire at the
+   Mumbai store?
+A: Yes, if Section 3.3 (Business Interruption) is elected. Section 4.8
+   references Business Interruption as an insurable extension. The sub-limit
+   and waiting period are in Section 10.4. Check Section 10.4 for specific
+   Business Interruption terms.
+   Requires cross-referencing: Section 3.3 + Section 4.8 + Section 10.4.
+
+SCENARIO B: BENEFIT TABLES & RATE CHARTS
+(Uses Medicare Plus policy — Health Insurance)
+These questions require reading specific rate charts, benefit tables, and
+extracting precise values.
+--------------------------------------------------------------------------------
+
+Q: What is the coinsurance percentage for a Band C policy?
+A: The coinsurance percentage is specified in Section 4.7 (Co-payment Table).
+   Band C has a specific co-payment rate listed in the table. Check Section
+   4.7 for the exact percentage.
+
+Q: What is the maximum Sum Insured available under this policy?
+A: Band D = INR 25,00,000 (25 Lakhs)
+   Source: Section 4.1 — Sum Insured Bands Table
+
+Q: What are the base premium rates for a Family Floater (2 adults + kids)
+   across all columns?
+A: Column A: 17.80, Column B: 16.70, Column C: 15.10, Column D: 13.40,
+   Column E: 11.90 (all rates per Mille of Sum Insured, per Annum)
+   Source: Section 5.2 — Base Rate Table
+
+Q: How does the Zone Multiplier affect premium calculation for Zone C
+   customers?
+A: Zone C multiplier is 1.00 (no adjustment). Applied in Step 2 of the
+   Calculation Sequence (Clause 5.7), BEFORE the Age Loading.
+   Source: Section 5.3 — Zone Multiplier Table
+
+Q: What is the cumulative waiting period for a Cataract surgery claim?
+A: Cataract has a 2-year disease-specific waiting period from first
+   inception (Section 6.3), PLUS the 30-day Initial Waiting Period
+   (Section 6.2). Total minimum waiting: 2 years and 30 days.
+   Source: Sections 6.2, 6.3
+
+Q: What is the Senior Citizen co-payment percentage for someone aged 65+?
+A: The Senior Citizen co-payment is specified in Section 4.8. For age 65+,
+   the co-payment percentage increases. Check Section 4.8 for the exact
+   tier and percentage.
+
+Q: How does the Long-Term Policy Discount work for a 2-year term?
+A: 7.5% discount on the sum of annualized premiums for the full term,
+   paid upfront. NOT combinable with mid-term Band upgrade under Clause 7.6.
+   Source: Section 5.12 — Long-Term Policy Discount Table
+
+Q: What is the Critical Illness Rider premium loading?
+A: The Critical Illness Rider premium is specified in Section 5.10. Check
+   Section 5.10 for the exact loading percentage or flat fee.
+   Source: Section 5.10
+
+Q: If a 45-year-old in Zone B has Band B, what is the Zone-adjusted Base
+   Rate before Age Loading?
+A: Base Rate (Band B, Column B) = 7.65 per Mille. Zone B Multiplier = 1.05.
+   Zone-adjusted Base Rate = 7.65 × 1.05 = 8.0325 per Mille.
+   Source: Section 5.2 (Base Rate) + Section 5.3 (Zone Multiplier)
+
+Q: What are the disease-specific waiting periods for Benign Prostatic
+   Hypertrophy and Cataract?
+A: Both have a 2-year waiting period from first inception, regardless of PED
+   status. This is listed in the Disease-Specific Waiting Period Table in
+   Section 6.3.
+   Source: Section 6.3 — Disease-Specific Waiting Period Table
+
+COMBINED / COMPLEX QUESTIONS (test multi-hop across tables)
+--------------------------------------------------------------------------------
+
+Q: For a 55-year-old (AG4) in Zone A with Band D and a PED loading of 25%,
+   what is the approximate annual premium before GST?
+A: Steps:
+   1. Base Rate (Band D, Column D) = 6.10 per Mille (Section 5.2)
+   2. Zone A Multiplier = 1.20 (Section 5.3) → 6.10 × 1.20 = 7.32
+   3. Age Loading AG4 = 25% (Section 5.4) → 7.32 × 1.25 = 9.15
+   4. PED Loading 25% (Section 5.9) → 9.15 × 1.25 = 11.4375
+   5. Per Mille × Sum Insured = 11.4375 × 25,00,000 / 1000 = INR 28,593.75
+   Requires: Sections 5.2 + 5.3 + 5.4 + 5.9 + 4.1
+
+Q: What is the maximum cumulative discount available if someone has had 5
+   consecutive claim-free years and then upgrades from Band B to Band C
+   mid-term?
+A: Cumulative Bonus after 5 years = 50% (maximum, per Section 4.10). Mid-term
+   Band upgrade under Clause 7.6 requires a fresh 1-year rate calculation for
+   the incremental Sum Insured only. Long-Term Discount (5.12) is NOT
+   combinable with mid-term Band upgrade.
+   Requires: Section 4.10 + Clause 7.6 + Footnote 5.12-a
