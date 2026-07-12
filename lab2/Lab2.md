@@ -435,18 +435,14 @@ G = nx.DiGraph()
 G.add_node("Question", layer=0)
 G.add_node("LLM\nTree Scan", layer=1)
 
-hop_colors = []
-node_colors = []
-node_labels = {}
-
-G.add_edge("Question", "LLM\nTree Scan")
-node_colors.append("#4A90D9")
+node_colors = ["#4A90D9", "#3498DB"]
 
 colors = ["#E74C3C", "#2ECC71", "#F39C12", "#9B59B6", "#1ABC9C"]
 
+G.add_edge("Question", "LLM\nTree Scan")
+
 for idx, (nid, title, page) in enumerate(selected_titles):
     hop_label = f"Hop {idx+1}\nNode {nid}\nPage {page}"
-    short_title = title[:30] + "..." if len(title) > 30 else title
     G.add_node(hop_label, layer=2)
     G.add_edge("LLM\nTree Scan", hop_label)
     node_colors.append(colors[idx % len(colors)])
@@ -464,6 +460,8 @@ G.add_edge("Evidence\nMerged", "Final\nAnswer")
 
 fig, ax = plt.subplots(1, 1, figsize=(14, 7))
 pos = nx.multipartite_layout(G, subset_key="layer", align="horizontal")
+
+assert len(node_colors) == len(G.nodes()), f"Color mismatch: {len(node_colors)} colors vs {len(G.nodes())} nodes"
 
 nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=2500, alpha=0.9, ax=ax)
 nx.draw_networkx_edges(G, pos, edge_color="#7F8C8D", arrows=True, arrowsize=20, width=2, ax=ax)
