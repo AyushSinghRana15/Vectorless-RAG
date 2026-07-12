@@ -353,6 +353,11 @@ Submit the PDF to PageIndex and retrieve the generated document tree. The tree i
 ```python
 import time
 
+if 'pdf_path' not in dir():
+    raise NameError(
+        "'pdf_path' is not defined. Please run the PDF selection cell above first."
+    )
+
 CACHE_DIR.mkdir(exist_ok=True)
 cache_path = CACHE_DIR / f"{pdf_path.stem}_tree.json"
 
