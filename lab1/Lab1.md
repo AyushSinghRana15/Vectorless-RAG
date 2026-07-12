@@ -254,14 +254,20 @@ upload_button = widgets.FileUpload(
 
 display(upload_button)
 
+_saved_files = set()
+
 def on_upload_change(change):
     with upload_output:
         upload_output.clear_output()
         if change['new']:
-            for name, meta in change['new'].items():
-                content = meta['content']
-                save_path = DATA_DIR / name
-                save_path.write_bytes(content)
+            for entry in change['new']:
+                if entry.name in _saved_files:
+                    continue
+                if not entry.content:
+                    continue
+                save_path = DATA_DIR / entry.name
+                save_path.write_bytes(entry.content)
+                _saved_files.add(entry.name)
                 print(f"Saved: {save_path}")
 
 upload_button.observe(on_upload_change, names='value')
