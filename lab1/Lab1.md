@@ -612,8 +612,4 @@ In this lab, you built a complete Vectorless RAG pipeline that retrieves and rea
 - **End-to-end explainability** is built into the pipeline: from retrieval rationale and source page attribution to groundedness checks and LLM-as-Judge evaluation, every step is auditable.
 - **PageIndex document trees** preserve document structure (titles, sections, summaries) that would be lost in traditional chunking-based approaches.
 
-To extend this pipeline, consider:
-- Supporting multiple PDFs in a single query session.
-- Adding streaming responses for real-time answer generation.
-- Integrating additional document types (Word, HTML, Markdown) via PageIndex.
-- Building a web interface with Gradio or Streamlit for non-technical users.
+
