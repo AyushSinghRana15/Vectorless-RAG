@@ -1,12 +1,12 @@
 # 1. Lab Title
 
-## Vectorless RAG: Multi-Hop Claims Adjudication & Benefit Tables
+## Vectorless RAG: Multi-Hop Reasoning & Structured Data Retrieval
 
 # What is Multi-Hop RAG?
 
 **Multi-hop RAG** is a retrieval-augmented generation pattern where answering a single question requires fetching evidence from **multiple distant sections** of a document.
 
-Traditional chunking-based RAG retrieves a single text chunk per query. This works for simple lookups but fails when the answer depends on combining facts from different parts of a document — for example, matching an incident date against a policy's effective period (page 2) and deductible limits (page 15).
+Traditional chunking-based RAG retrieves a single text chunk per query. This works for simple lookups but fails when the answer depends on combining facts from different parts of a document — for example, matching a date from one section against a condition defined in another, or combining definitions from separate chapters.
 
 **Vectorless RAG** solves this by letting an LLM reason over the **entire document tree** and explicitly select any combination of nodes, regardless of where they appear. This enables true multi-hop reasoning without the noise and fragmentation introduced by text chunking.
 
@@ -14,18 +14,13 @@ Traditional chunking-based RAG retrieves a single text chunk per query. This wor
 
 This lab demonstrates two advanced Vectorless RAG scenarios where standard chunking-based RAG fails:
 
-### Scenario A: Multi-Hop Claims Adjudication
+### Scenario A: Cross-Reference Analysis
 
-When adjudicating an insurance claim, adjusters must cross-reference multiple policy sections:
-- **Effective Dates** — when does coverage apply?
-- **Deductible Limits** — what does the insured pay first?
-- **Coverage Caps** — what is the maximum payout?
+Many documents require cross-referencing multiple sections to answer a single question — a legal contract's definitions and obligations, a technical manual's specs and compatibility tables, or a research paper's methodology and results. Standard RAG retrieves a single chunk. If the relevant facts are in different sections, chunking either misses one or mixes in irrelevant surrounding text.
 
-Standard RAG retrieves a single chunk. If these facts are in different sections, chunking either misses one or mixes in irrelevant surrounding text.
+### Scenario B: Tabular Data & Structured Information
 
-### Scenario B: Benefit Tables & Rate Charts
-
-Insurance policies contain structured tables — rate charts, benefit schedules, co-pay matrices — that are critical for accurate answers. Standard chunking **shatters** tables:
+Documents often contain structured tables — comparison charts, schedules, matrices, or rate cards — that are critical for accurate answers. Standard chunking **shatters** tables:
 - A table spanning one page might be split into 3-4 chunks.
 - Headers get separated from their rows.
 - Footnotes referencing table cells get lost.
@@ -36,9 +31,9 @@ Vectorless RAG retrieves **whole logical nodes**, preserving table structure, he
 
 | Item | Detail |
 |------|--------|
-| PDF document | A complex insurance policy with multi-section clauses, dates, deductibles, and rate tables |
-| Adjudication question | A multi-hop question requiring facts from multiple sections (e.g., _"Is this claim within the effective dates and below the deductible?"_) |
-| Table question | A question about a rate chart or benefit table (e.g., _"What is the coinsurance rate for out-of-network providers?"_) |
+| PDF document | Any complex, multi-section PDF with tables, cross-references, or structured data |
+| Cross-reference question | A multi-hop question requiring facts from multiple sections (e.g., _"What are the eligibility requirements and maximum limits?"_) |
+| Table question | A question about a table or structured data (e.g., _"What is the value for Product X in the Q3 comparison table?"_) |
 | `GROQ_API_KEY` | Free API key from [console.groq.com/keys](https://console.groq.com/keys) |
 | `PAGEINDEX_API_KEY` | API key from [www.pageindex.ai](https://www.pageindex.ai) |
 
@@ -53,27 +48,27 @@ PageIndex Client ──── submit PDF ────►  PageIndex API
     │                                    document tree
     │◄─────────────────────────────────────────
     │
-    ├─── Scenario A: Multi-Hop ──────────────────────────────────────
+    ├─── Scenario A: Cross-Reference ──────────────────────────────────
     │         │
     │         ▼
-    │    LLM (Groq) ──── select multiple nodes ────►  [dates, deductibles, caps]
+    │    LLM (Groq) ──── select multiple nodes ────►  [section_a, section_b, ...]
     │         │
     │         ▼
     │    Evidence Extractor ──── collect all nodes ────►  combined evidence
     │         │
     │         ▼
-    │    LLM (Groq) ──── adjudicate claim ────►  decision + explainability
+    │    LLM (Groq) ──── reason over evidence ────►  answer + explainability
     │
     └─── Scenario B: Table Extraction ───────────────────────────────
               │
               ▼
-         LLM (Groq) ──── identify table node ────►  [rate_chart_node]
+         LLM (Groq) ──── identify table node ────►  [table_node]
               │
               ▼
          Evidence Extractor ──── collect full table ────►  structured table
               │
               ▼
-         LLM (Groq) ──── read table + answer ────►  specific rate/benefit answer
+         LLM (Groq) ──── read table + answer ────►  specific structured-data answer
 ```
 
 1. **PageIndex Client** submits the PDF (or loads a cached tree) and retrieves a hierarchical tree of titles, summaries, and text.
