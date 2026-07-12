@@ -104,7 +104,7 @@ The system also prints:
 | LLM Client | OpenAI Python SDK (compatible with Groq's endpoint) |
 | PDF Processing | PyMuPDF (`pymupdf`) |
 | Configuration | `python-dotenv` for `.env` file support |
-| Language | Python 3.x |
+| Language | Python 3.11.0 |
 | Runtime | Jupyter Notebook |
 
 # 7. Underlying Concepts
@@ -602,3 +602,18 @@ try:
 except Exception as e:
     print(f"(LLM-as-Judge evaluation could not be completed: {e})")
 ```
+
+# 10. Conclusion
+
+In this lab, you built a complete Vectorless RAG pipeline that retrieves and reasons over PDF documents without embeddings, vector databases, or complex infrastructure. Key takeaways:
+
+- **Vectorless RAG eliminates the embedding bottleneck** by using LLM-driven tree reasoning instead of similarity search, reducing infrastructure complexity while maintaining retrieval quality.
+- **Context Engineering principles** — particularly context quarantine and structured evidence collection — ensure each LLM call receives only the information it needs, improving accuracy and reducing noise.
+- **End-to-end explainability** is built into the pipeline: from retrieval rationale and source page attribution to groundedness checks and LLM-as-Judge evaluation, every step is auditable.
+- **PageIndex document trees** preserve document structure (titles, sections, summaries) that would be lost in traditional chunking-based approaches.
+
+To extend this pipeline, consider:
+- Supporting multiple PDFs in a single query session.
+- Adding streaming responses for real-time answer generation.
+- Integrating additional document types (Word, HTML, Markdown) via PageIndex.
+- Building a web interface with Gradio or Streamlit for non-technical users.

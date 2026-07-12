@@ -123,7 +123,7 @@ PageIndex Client ──── submit PDF ────►  PageIndex API
 | LLM Client | OpenAI Python SDK (compatible with Groq's endpoint) |
 | PDF Processing | PyMuPDF (`pymupdf`) |
 | Configuration | `python-dotenv` for `.env` file support |
-| Language | Python 3.x |
+| Language | Python 3.11.0 |
 | Runtime | Jupyter Notebook |
 
 # 7. Underlying Concepts
@@ -752,3 +752,18 @@ print(json.dumps(table_final_json.get("table_structure", {}), indent=2))
 print("\nExplainability:")
 print(json.dumps(table_final_json.get("explainability", {}), indent=2))
 ```
+
+# 10. Conclusion
+
+In this lab, you extended Vectorless RAG to handle complex, real-world scenarios that break traditional chunking-based retrieval. Key takeaways:
+
+- **Multi-hop retrieval** enables answering questions that require combining facts from distant sections of a document — something single-chunk retrieval cannot achieve. The LLM reasons over the full tree and explicitly selects every relevant node.
+- **Table preservation** is a critical advantage of node-based retrieval. Rate charts, benefit schedules, and co-pay matrices remain intact with their headers, rows, and footnotes — avoiding the fragmentation that chunking introduces.
+- **Structured adjudication output** provides claims adjusters with a clear decision, supporting evidence, and full explainability, making the system suitable for audit and compliance workflows.
+- **Visualization** of the retrieval graph (multi-hop and table paths) adds transparency by showing exactly which document sections were accessed and how evidence flows into the final answer.
+
+To extend this pipeline, consider:
+- Adding a pre-check step that validates claim data against policy eligibility before adjudication.
+- Supporting batch adjudication for multiple claims against the same policy.
+- Integrating OCR for scanned PDFs to improve table extraction accuracy.
+- Building a comparison view that shows how chunking-based RAG would fail on the same queries.
