@@ -432,45 +432,73 @@ import matplotlib.patches as mpatches
 
 G = nx.DiGraph()
 
+node_info = []
+for nid in selected_node_ids:
+    node = node_map.get(nid, {})
+    title = node.get('title', nid)
+    page = node.get('page', '?')
+    parent = node.get('parent_id', None)
+    node_info.append({'id': nid, 'title': title, 'page': page, 'parent': parent})
+
 G.add_node("Question", layer=0)
 G.add_node("LLM\nTree Scan", layer=1)
-
-node_colors = ["#4A90D9", "#3498DB"]
+G.add_edge("Question", "LLM\nTree Scan", label="analyzes tree")
 
 colors = ["#E74C3C", "#2ECC71", "#F39C12", "#9B59B6", "#1ABC9C"]
+node_colors = ["#4A90D9", "#3498DB"]
 
-G.add_edge("Question", "LLM\nTree Scan")
-
-for idx, (nid, title, page) in enumerate(selected_titles):
-    hop_label = f"Hop {idx+1}\nNode {nid}\nPage {page}"
+hop_labels = []
+for idx, info in enumerate(node_info):
+    hop_label = f"{info['id']}\n{info['title'][:25]}\npg {info['page']}"
+    hop_labels.append(hop_label)
     G.add_node(hop_label, layer=2)
-    G.add_edge("LLM\nTree Scan", hop_label)
+    G.add_edge("LLM\nTree Scan", hop_label, label=f"hop {idx+1}")
     node_colors.append(colors[idx % len(colors)])
+
+for idx in range(len(node_info)):
+    for jdx in range(idx + 1, len(node_info)):
+        child = node_info[idx]
+        candidate = node_info[jdx]
+        if candidate['id'] == child.get('parent'):
+            edge_label = f"parent of\n{child['id']}"
+            G.add_edge(hop_labels[jdx], hop_labels[idx], label=edge_label, style="dashed")
+        elif child['id'] == candidate.get('parent'):
+            edge_label = f"parent of\n{candidate['id']}"
+            G.add_edge(hop_labels[idx], hop_labels[jdx], label=edge_label, style="dashed")
 
 G.add_node("Evidence\nMerged", layer=3)
 G.add_node("Final\nAnswer", layer=4)
 node_colors.append("#34495E")
 node_colors.append("#2C3E50")
 
-for idx in range(len(selected_titles)):
-    hop_label = f"Hop {idx+1}\nNode {selected_titles[idx][0]}\nPage {selected_titles[idx][2]}"
-    G.add_edge(hop_label, "Evidence\nMerged")
+for hl in hop_labels:
+    G.add_edge(hl, "Evidence\nMerged", label="contributes")
 
-G.add_edge("Evidence\nMerged", "Final\nAnswer")
+G.add_edge("Evidence\nMerged", "Final\nAnswer", label="generates")
 
-fig, ax = plt.subplots(1, 1, figsize=(14, 7))
+fig, ax = plt.subplots(1, 1, figsize=(16, 8))
 pos = nx.multipartite_layout(G, subset_key="layer", align="horizontal")
 
 assert len(node_colors) == len(G.nodes()), f"Color mismatch: {len(node_colors)} colors vs {len(G.nodes())} nodes"
 
-nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=2500, alpha=0.9, ax=ax)
-nx.draw_networkx_edges(G, pos, edge_color="#7F8C8D", arrows=True, arrowsize=20, width=2, ax=ax)
-nx.draw_networkx_labels(G, pos, font_size=8, font_color="white", font_weight="bold", ax=ax)
+nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=2800, alpha=0.9, ax=ax)
 
-legend_items = [mpatches.Patch(color=colors[i % len(colors)], label=f"Hop {i+1}: {selected_titles[i][1][:40]}") for i in range(len(selected_titles))]
+solid_edges = [(u, v) for u, v, d in G.edges(data=True) if d.get('style') != 'dashed']
+dashed_edges = [(u, v) for u, v, d in G.edges(data=True) if d.get('style') == 'dashed']
+
+nx.draw_networkx_edges(G, pos, edgelist=solid_edges, edge_color="#7F8C8D", arrows=True, arrowsize=20, width=2, ax=ax)
+nx.draw_networkx_edges(G, pos, edgelist=dashed_edges, edge_color="#E67E22", arrows=True, arrowsize=18, width=2, style="dashed", ax=ax)
+
+nx.draw_networkx_labels(G, pos, font_size=7, font_color="white", font_weight="bold", ax=ax)
+
+edge_labels = {(u, v): d.get('label', '') for u, v, d in G.edges(data=True) if d.get('label')}
+nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=6, font_color="#2C3E50", ax=ax)
+
+legend_items = [mpatches.Patch(color=colors[i % len(colors)], label=f"{node_info[i]['id']}: {node_info[i]['title'][:35]}") for i in range(len(node_info))]
+legend_items.append(mpatches.Patch(color="#E67E22", label="Tree parent/child link"))
 ax.legend(handles=legend_items, loc="upper left", fontsize=8, framealpha=0.9)
 
-ax.set_title("Multi-Hop Retrieval Graph", fontsize=14, fontweight="bold", pad=20)
+ax.set_title("Multi-Hop Retrieval Graph — Node References", fontsize=14, fontweight="bold", pad=20)
 ax.axis("off")
 plt.tight_layout()
 plt.show()
