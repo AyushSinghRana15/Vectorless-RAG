@@ -241,6 +241,20 @@ async def call_llm(system_prompt: str, user_prompt: str, model: str = LLM_MODEL,
     return response.choices[0].message.content.strip()
 
 
+async def call_llm_and_parse(system_prompt: str, user_prompt: str, model: str = LLM_MODEL, temperature: float = 0.0) -> dict[str, Any]:
+    reply = await call_llm(system_prompt, user_prompt, model, temperature)
+    try:
+        return extract_json(reply)
+    except ValueError:
+        print("Received malformed JSON, sending one corrective retry...")
+        corrective_prompt = f"Your previous reply was not valid JSON:\n\n{reply}\n\nReturn ONLY the valid JSON object, with no extra text, no markdown fences, and no explanation."
+        reply2 = await call_llm(system_prompt, corrective_prompt, model, temperature)
+        try:
+            return extract_json(reply2)
+        except ValueError:
+            raise RuntimeError("The AI model failed to return valid JSON after 2 attempts. Please try rephrasing your question.")
+
+
 def preview_text(text: str, limit: int = 1200) -> str:
     text = text.strip()
     return text if len(text) <= limit else text[:limit].rstrip() + "..."
@@ -548,6 +562,43 @@ print("\nExplainability:")
 print(json.dumps(answer_json.get("explainability", {}), indent=2))
 ```
 
+#### A5) Groundedness check
+
+```python
+if evidence_text.strip():
+    groundedness_system_prompt = """
+You are a fact-checking assistant. You will be given an answer and the
+evidence text it was supposed to be based on. Determine whether the
+answer's claims are actually supported by the evidence.
+
+Return valid JSON with this shape:
+{
+  "grounded": true or false,
+  "reason": "one short sentence explaining your judgment"
+}
+
+Do not output markdown, prose, or extra keys.
+""".strip()
+
+    groundedness_user_prompt = f"""
+Answer to check:
+{answer_json['final_answer']}
+
+Evidence it should be based on:
+{evidence_text}
+""".strip()
+
+    try:
+        groundedness_json = await call_llm_and_parse(groundedness_system_prompt, groundedness_user_prompt)
+        if groundedness_json.get("grounded") is False:
+            print("\nWARNING: This answer may not be fully supported by the retrieved evidence.")
+            print(f"   Reason: {groundedness_json.get('reason', 'No reason given.')}")
+        else:
+            print("\nGroundedness check passed: answer is supported by the retrieved evidence.")
+    except Exception:
+        print("\n(Groundedness check could not be completed.)")
+```
+
 ---
 
 ### Scenario B: Tabular Data & Structured Information
@@ -729,6 +780,43 @@ print("\nTable reference:")
 print(json.dumps(table_final_json.get("table_structure", {}), indent=2))
 print("\nExplainability:")
 print(json.dumps(table_final_json.get("explainability", {}), indent=2))
+```
+
+#### B5) Groundedness check
+
+```python
+if table_evidence.strip():
+    groundedness_system_prompt = """
+You are a fact-checking assistant. You will be given an answer and the
+evidence text it was supposed to be based on. Determine whether the
+answer's claims are actually supported by the evidence.
+
+Return valid JSON with this shape:
+{
+  "grounded": true or false,
+  "reason": "one short sentence explaining your judgment"
+}
+
+Do not output markdown, prose, or extra keys.
+""".strip()
+
+    groundedness_user_prompt = f"""
+Answer to check:
+{table_final_json['final_answer']}
+
+Evidence it should be based on:
+{table_evidence}
+""".strip()
+
+    try:
+        groundedness_json = await call_llm_and_parse(groundedness_system_prompt, groundedness_user_prompt)
+        if groundedness_json.get("grounded") is False:
+            print("\nWARNING: This answer may not be fully supported by the retrieved evidence.")
+            print(f"   Reason: {groundedness_json.get('reason', 'No reason given.')}")
+        else:
+            print("\nGroundedness check passed: answer is supported by the retrieved evidence.")
+    except Exception:
+        print("\n(Groundedness check could not be completed.)")
 ```
 
 # 10. Conclusion
