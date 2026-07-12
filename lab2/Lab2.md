@@ -421,6 +421,36 @@ print("\nRetrieval reasoning:")
 print(retrieval_json.get("thinking", ""))
 ```
 
+#### A2b) Visualize the multi-hop retrieval
+
+```python
+selected_titles = []
+for nid in selected_node_ids:
+    node = node_map.get(nid, {})
+    title = node.get('title', nid)
+    page = node.get('page', '?')
+    selected_titles.append((nid, title, page))
+
+print("=" * 70)
+print("MULTI-HOP RETRIEVAL GRAPH")
+print("=" * 70)
+print()
+print(f"  QUESTION: {ADJUDICATION_QUESTION}")
+print()
+print("  LLM scans the full document tree...")
+print()
+for i, (nid, title, page) in enumerate(selected_titles):
+    connector = "├──" if i < len(selected_titles) - 1 else "└──"
+    print(f"    {connector} [Hop {i+1}] Node {nid} (page {page})")
+    print(f"    {'│   ' if i < len(selected_titles) - 1 else '    '}  └─ {title}")
+    if i < len(selected_titles) - 1:
+        print("    │")
+
+print()
+print("  All hops collected → Evidence merged → Final answer")
+print("=" * 70)
+```
+
 #### A3) Extract multi-hop evidence
 
 ```python
@@ -528,6 +558,45 @@ table_node_ids = table_json.get("node_list", [])
 print(f"Selected {len(table_node_ids)} node(s):", table_node_ids)
 print("\nRetrieval reasoning:")
 print(table_json.get("thinking", ""))
+```
+
+#### B2b) Visualize the table retrieval
+
+```python
+table_titles = []
+for nid in table_node_ids:
+    node = node_map.get(nid, {})
+    title = node.get('title', nid)
+    page = node.get('page', '?')
+    table_titles.append((nid, title, page))
+
+print("=" * 70)
+print("TABLE RETRIEVAL GRAPH")
+print("=" * 70)
+print()
+print(f"  QUESTION: {TABLE_QUESTION}")
+print()
+print("  LLM scans the tree for table/schedule nodes...")
+print()
+print("    Document Tree")
+print("    ├── 1 DECLARATIONS")
+print("    ├── 2 DEFINITIONS")
+print("    ├── ...")
+
+for i, (nid, title, page) in enumerate(table_titles):
+    connector = "├──" if i < len(table_titles) - 1 else "└──"
+    print(f"    {connector} ★ {title} (page {page})  ← SELECTED")
+    if i < len(table_titles) - 1:
+        print("    │")
+
+remaining = [t for t in ["10 Schedule of Limits", "11 ENDORSEMENTS"] if t not in [x[1] for x in table_titles]]
+for t in remaining:
+    print(f"    ├── {t}")
+
+print("    └── 12 Cross-Reference Index")
+print()
+print("  Complete table node retrieved (headers + rows + footnotes intact)")
+print("=" * 70)
 ```
 
 #### B3) Extract table evidence
