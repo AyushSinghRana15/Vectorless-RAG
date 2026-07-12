@@ -620,6 +620,13 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
+table_titles = []
+for nid in table_node_ids:
+    node = node_map.get(nid, {})
+    title = node.get('title', nid)
+    page = node.get('page', '?')
+    table_titles.append((nid, title, page))
+
 T = nx.DiGraph()
 
 tree_sections = [
@@ -636,8 +643,6 @@ tree_sections = [
     "11 ENDORSEMENTS",
     "12 Cross-Reference Index",
 ]
-
-selected_titles_map = {x[1]: x for x in table_titles}
 
 T.add_node("Document\nTree", layer=0)
 
@@ -657,8 +662,9 @@ T.add_edge("Retrieve\nFull Table", "Answer")
 
 node_colors = []
 node_sizes = []
+selected_names = [x[1] for x in table_titles]
 for node in T.nodes():
-    if node in [x[1] for x in table_titles]:
+    if node in selected_names:
         node_colors.append("#E74C3C")
         node_sizes.append(3000)
     elif node == "Document\nTree":
