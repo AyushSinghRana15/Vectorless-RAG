@@ -275,40 +275,37 @@ display(upload_output)
 
 pdf_files = sorted(p.name for p in DATA_DIR.glob('*.pdf'))
 if not pdf_files:
-    raise FileNotFoundError(
-        f"No PDF files found in {DATA_DIR.resolve()}. "
-        f"Upload a PDF above or place one in the data/ folder."
+    print("⚠ No PDF files found. Upload a PDF above, then re-run this cell.")
+else:
+    pdf_dropdown = widgets.Dropdown(
+        options=pdf_files,
+        value=pdf_files[0],
+        description='Select PDF:',
+        style={'description_width': 'initial'},
+        layout=widgets.Layout(width='500px'),
     )
 
-pdf_dropdown = widgets.Dropdown(
-    options=pdf_files,
-    value=pdf_files[0],
-    description='Select PDF:',
-    style={'description_width': 'initial'},
-    layout=widgets.Layout(width='500px'),
-)
+    display(pdf_dropdown)
 
-display(pdf_dropdown)
+    pdf_path = DATA_DIR / pdf_files[0]
 
-pdf_path = DATA_DIR / pdf_files[0]
+    def on_pdf_change(change):
+        global pdf_path
+        pdf_path = DATA_DIR / change['new']
 
-def on_pdf_change(change):
-    global pdf_path
-    pdf_path = DATA_DIR / change['new']
+    pdf_dropdown.observe(on_pdf_change, names='value')
 
-pdf_dropdown.observe(on_pdf_change, names='value')
+    MAX_PDF_SIZE_MB = 20
+    with open(pdf_path, 'rb') as f:
+        header = f.read(4)
+    if header != b'%PDF':
+        raise ValueError(f"{pdf_path.name} does not appear to be a valid PDF file (missing %PDF signature).")
 
-MAX_PDF_SIZE_MB = 20
-with open(pdf_path, 'rb') as f:
-    header = f.read(4)
-if header != b'%PDF':
-    raise ValueError(f"{pdf_path.name} does not appear to be a valid PDF file (missing %PDF signature).")
+    size_mb = pdf_path.stat().st_size / (1024 * 1024)
+    if size_mb > MAX_PDF_SIZE_MB:
+        raise ValueError(f"{pdf_path.name} is {size_mb:.1f} MB, which exceeds the {MAX_PDF_SIZE_MB} MB limit.")
 
-size_mb = pdf_path.stat().st_size / (1024 * 1024)
-if size_mb > MAX_PDF_SIZE_MB:
-    raise ValueError(f"{pdf_path.name} is {size_mb:.1f} MB, which exceeds the {MAX_PDF_SIZE_MB} MB limit.")
-
-print(f"Using PDF: {pdf_path}")
+    print(f"Using PDF: {pdf_path}")
 ```
 
 #### 2) Build the PageIndex tree
