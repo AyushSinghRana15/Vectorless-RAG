@@ -156,11 +156,13 @@ The cell below installs all required Python packages:
 | `openai` | OpenAI-compatible client (used to talk to Groq's endpoint) |
 | `python-dotenv` | Loads environment variables from a `.env` file |
 | `pymupdf` | PDF parsing and text extraction |
+| `networkx` | Graph construction for retrieval visualization |
+| `matplotlib` | Plotting the multi-hop and table retrieval graphs |
 
 Run this cell first — it only needs to be run once per session.
 
 ```bash
-pip install -q --upgrade pageindex openai python-dotenv pymupdf
+pip install -q --upgrade pageindex openai python-dotenv pymupdf networkx matplotlib
 ```
 
 ### Set up your API Keys
@@ -424,31 +426,56 @@ print(retrieval_json.get("thinking", ""))
 #### A2b) Visualize the multi-hop retrieval
 
 ```python
-selected_titles = []
-for nid in selected_node_ids:
-    node = node_map.get(nid, {})
-    title = node.get('title', nid)
-    page = node.get('page', '?')
-    selected_titles.append((nid, title, page))
+import networkx as nx
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
-print("=" * 70)
-print("MULTI-HOP RETRIEVAL GRAPH")
-print("=" * 70)
-print()
-print(f"  QUESTION: {ADJUDICATION_QUESTION}")
-print()
-print("  LLM scans the full document tree...")
-print()
-for i, (nid, title, page) in enumerate(selected_titles):
-    connector = "├──" if i < len(selected_titles) - 1 else "└──"
-    print(f"    {connector} [Hop {i+1}] Node {nid} (page {page})")
-    print(f"    {'│   ' if i < len(selected_titles) - 1 else '    '}  └─ {title}")
-    if i < len(selected_titles) - 1:
-        print("    │")
+G = nx.DiGraph()
 
-print()
-print("  All hops collected → Evidence merged → Final answer")
-print("=" * 70)
+G.add_node("Question", layer=0)
+G.add_node("LLM\nTree Scan", layer=1)
+
+hop_colors = []
+node_colors = []
+node_labels = {}
+
+G.add_edge("Question", "LLM\nTree Scan")
+node_colors.append("#4A90D9")
+
+colors = ["#E74C3C", "#2ECC71", "#F39C12", "#9B59B6", "#1ABC9C"]
+
+for idx, (nid, title, page) in enumerate(selected_titles):
+    hop_label = f"Hop {idx+1}\nNode {nid}\nPage {page}"
+    short_title = title[:30] + "..." if len(title) > 30 else title
+    G.add_node(hop_label, layer=2)
+    G.add_edge("LLM\nTree Scan", hop_label)
+    node_colors.append(colors[idx % len(colors)])
+
+G.add_node("Evidence\nMerged", layer=3)
+G.add_node("Final\nAnswer", layer=4)
+node_colors.append("#34495E")
+node_colors.append("#2C3E50")
+
+for idx in range(len(selected_titles)):
+    hop_label = f"Hop {idx+1}\nNode {selected_titles[idx][0]}\nPage {selected_titles[idx][2]}"
+    G.add_edge(hop_label, "Evidence\nMerged")
+
+G.add_edge("Evidence\nMerged", "Final\nAnswer")
+
+fig, ax = plt.subplots(1, 1, figsize=(14, 7))
+pos = nx.multipartite_layout(G, subset_key="layer", align="horizontal")
+
+nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=2500, alpha=0.9, ax=ax)
+nx.draw_networkx_edges(G, pos, edge_color="#7F8C8D", arrows=True, arrowsize=20, width=2, ax=ax)
+nx.draw_networkx_labels(G, pos, font_size=8, font_color="white", font_weight="bold", ax=ax)
+
+legend_items = [mpatches.Patch(color=colors[i % len(colors)], label=f"Hop {i+1}: {selected_titles[i][1][:40]}") for i in range(len(selected_titles))]
+ax.legend(handles=legend_items, loc="upper left", fontsize=8, framealpha=0.9)
+
+ax.set_title("Multi-Hop Retrieval Graph", fontsize=14, fontweight="bold", pad=20)
+ax.axis("off")
+plt.tight_layout()
+plt.show()
 ```
 
 #### A3) Extract multi-hop evidence
@@ -563,40 +590,80 @@ print(table_json.get("thinking", ""))
 #### B2b) Visualize the table retrieval
 
 ```python
-table_titles = []
-for nid in table_node_ids:
-    node = node_map.get(nid, {})
-    title = node.get('title', nid)
-    page = node.get('page', '?')
-    table_titles.append((nid, title, page))
+import networkx as nx
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
-print("=" * 70)
-print("TABLE RETRIEVAL GRAPH")
-print("=" * 70)
-print()
-print(f"  QUESTION: {TABLE_QUESTION}")
-print()
-print("  LLM scans the tree for table/schedule nodes...")
-print()
-print("    Document Tree")
-print("    ├── 1 DECLARATIONS")
-print("    ├── 2 DEFINITIONS")
-print("    ├── ...")
+T = nx.DiGraph()
 
-for i, (nid, title, page) in enumerate(table_titles):
-    connector = "├──" if i < len(table_titles) - 1 else "└──"
-    print(f"    {connector} ★ {title} (page {page})  ← SELECTED")
-    if i < len(table_titles) - 1:
-        print("    │")
+tree_sections = [
+    "1 DECLARATIONS",
+    "2 DEFINITIONS",
+    "3 INSURING AGREEMENTS",
+    "4 PROPERTY DAMAGE",
+    "5 GENERAL LIABILITY",
+    "6 CYBER & DATA BREACH",
+    "7 GENERAL EXCLUSIONS",
+    "8 CONDITIONS",
+    "9 CLAIMS PROCEDURE",
+    "10 Schedule of Limits",
+    "11 ENDORSEMENTS",
+    "12 Cross-Reference Index",
+]
 
-remaining = [t for t in ["10 Schedule of Limits", "11 ENDORSEMENTS"] if t not in [x[1] for x in table_titles]]
-for t in remaining:
-    print(f"    ├── {t}")
+selected_titles_map = {x[1]: x for x in table_titles}
 
-print("    └── 12 Cross-Reference Index")
-print()
-print("  Complete table node retrieved (headers + rows + footnotes intact)")
-print("=" * 70)
+T.add_node("Document\nTree", layer=0)
+
+for section in tree_sections:
+    T.add_node(section, layer=1)
+    T.add_edge("Document\nTree", section)
+
+T.add_node("LLM\nIdentifies\nTable", layer=2)
+T.add_node("Retrieve\nFull Table", layer=3)
+T.add_node("Answer", layer=4)
+
+for section in tree_sections:
+    T.add_edge(section, "LLM\nIdentifies\nTable")
+
+T.add_edge("LLM\nIdentifies\nTable", "Retrieve\nFull Table")
+T.add_edge("Retrieve\nFull Table", "Answer")
+
+node_colors = []
+node_sizes = []
+for node in T.nodes():
+    if node in [x[1] for x in table_titles]:
+        node_colors.append("#E74C3C")
+        node_sizes.append(3000)
+    elif node == "Document\nTree":
+        node_colors.append("#4A90D9")
+        node_sizes.append(2500)
+    elif node in ["LLM\nIdentifies\nTable", "Retrieve\nFull Table", "Answer"]:
+        node_colors.append("#2ECC71")
+        node_sizes.append(2500)
+    else:
+        node_colors.append("#BDC3C7")
+        node_sizes.append(2000)
+
+fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+pos = nx.multipartite_layout(T, subset_key="layer", align="horizontal")
+
+nx.draw_networkx_nodes(T, pos, node_color=node_colors, node_size=node_sizes, alpha=0.9, ax=ax)
+nx.draw_networkx_edges(T, pos, edge_color="#7F8C8D", arrows=True, arrowsize=15, width=1.5, alpha=0.6, ax=ax)
+nx.draw_networkx_labels(T, pos, font_size=7, font_color="white", font_weight="bold", ax=ax)
+
+legend_items = [
+    mpatches.Patch(color="#4A90D9", label="Document Tree"),
+    mpatches.Patch(color="#BDC3C7", label="Other Sections"),
+    mpatches.Patch(color="#E74C3C", label="Selected Table Node"),
+    mpatches.Patch(color="#2ECC71", label="Processing Steps"),
+]
+ax.legend(handles=legend_items, loc="upper left", fontsize=9, framealpha=0.9)
+
+ax.set_title("Table Retrieval Graph — Full Node Preserved", fontsize=14, fontweight="bold", pad=20)
+ax.axis("off")
+plt.tight_layout()
+plt.show()
 ```
 
 #### B3) Extract table evidence
