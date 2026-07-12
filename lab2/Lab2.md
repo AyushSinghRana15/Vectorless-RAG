@@ -72,23 +72,21 @@ PageIndex Client ──── submit PDF ────►  PageIndex API
 ```
 
 1. **PageIndex Client** submits the PDF (or loads a cached tree) and retrieves a hierarchical tree of titles, summaries, and text.
-2. **Scenario A**: The LLM selects **multiple nodes** from different sections (effective dates, deductibles, coverage caps) and combines them for adjudication.
+2. **Scenario A**: The LLM selects **multiple nodes** from different sections and combines them for cross-reference analysis.
 3. **Scenario B**: The LLM identifies the **table node** and retrieves it intact — preserving headers, rows, and footnotes.
 4. **Answer LLM** uses only the retrieved evidence to produce a structured JSON response.
 
 # 5. Output
 
-### Scenario A: Adjudication Response
+### Scenario A: Cross-Reference Response
 
 ```json
 {
-  "decision": "approve",
-  "final_answer": "The claim is within the effective dates and below the deductible limit.",
+  "final_answer": "The eligibility criteria require X and Y. The maximum limit is Z.",
   "explainability": {
-    "effective_dates": "Policy period: Jan 1, 2024 – Dec 31, 2024",
-    "deductible": "Annual deductible: $1,000",
-    "coverage_limits": "Maximum payout: $500,000",
-    "evidence_used": ["node xyz: Effective Dates section", "node abc: Deductible Limits section"]
+    "section_a_summary": "relevant information found in section A",
+    "section_b_summary": "relevant information found in section B",
+    "evidence_used": ["node xyz: Section A title", "node abc: Section B title"]
   }
 }
 ```
@@ -97,14 +95,14 @@ PageIndex Client ──── submit PDF ────►  PageIndex API
 
 ```json
 {
-  "final_answer": "The coinsurance rate for out-of-network providers is 40%.",
+  "final_answer": "The Q3 revenue for Product X is $1.2M.",
   "table_structure": {
-    "table_title": "Section 5.2 — Provider Fee Schedule",
-    "relevant_row": "Out-of-Network",
-    "relevant_column": "Coinsurance Rate"
+    "table_title": "Section 5.2 — Q3 Comparison Table",
+    "relevant_row": "Product X",
+    "relevant_column": "Q3 Revenue"
   },
   "explainability": {
-    "evidence_used": ["Complete fee schedule table from node 123"]
+    "evidence_used": ["Complete comparison table from node 123"]
   }
 }
 ```
@@ -138,7 +136,7 @@ PageIndex Client ──── submit PDF ────►  PageIndex API
 - Basic familiarity with Python (functions, `import` statements, async/await).
 - A **Groq API key** — free tier available at [console.groq.com/keys](https://console.groq.com/keys).
 - A **PageIndex API key** — from [www.pageindex.ai](https://www.pageindex.ai).
-- A complex insurance policy PDF to place in the `data/` folder.
+- A complex, multi-section PDF document to place in the `data/` folder.
 - Completion of **Lab 1** (Vectorless RAG basics) recommended.
 
 # 9. Environment / Dependencies Setup
@@ -256,7 +254,7 @@ This is the core of the lab. Follow each sub-step in order.
 
 #### 1) Load a PDF from `data/`
 
-Place a complex insurance policy PDF in the `data/` folder before running this cell. If `PDF_NAME` is set, the notebook uses that file; otherwise it picks the first PDF found.
+Place a complex, multi-section PDF in the `data/` folder before running this cell. If `PDF_NAME` is set, the notebook uses that file; otherwise it picks the first PDF found.
 
 ```python
 if not DATA_DIR.exists():
@@ -359,17 +357,17 @@ print(f"Indexed nodes: {len(node_map)}")
 
 ---
 
-### Scenario A: Multi-Hop Claims Adjudication
+### Scenario A: Multi-Hop Cross-Reference Analysis
 
-#### A1) Define the adjudication question
+#### A1) Define the cross-reference question
 
-Ask a question that requires fetching facts from multiple sections of the policy.
+Ask a question that requires fetching facts from multiple sections of the document.
 
 ```python
-ADJUDICATION_QUESTION = input(
-    "Enter a multi-hop claims question (e.g., 'Is this claim within the effective dates and below the deductible limit?'): "
+CROSS_REFERENCE_QUESTION = input(
+    "Enter a multi-hop question requiring facts from multiple sections (e.g., 'What are the eligibility requirements and maximum limits?'): "
 ).strip()
-if not ADJUDICATION_QUESTION:
+if not CROSS_REFERENCE_QUESTION:
     raise ValueError("A question is required to continue.")
 ```
 
@@ -379,17 +377,17 @@ The LLM receives the full document tree and explicitly identifies which sections
 
 ```python
 retrieval_system_prompt = """
-You are a document retrieval assistant for a multi-hop insurance claims adjudication system.
+You are a document retrieval assistant for a multi-hop question answering system.
 
 You will receive a user question and a PageIndex tree made of node titles and summaries.
-The question may require information from MULTIPLE distant sections of the policy.
+The question may require information from MULTIPLE distant sections of the document.
 
 Identify ALL node IDs that contain relevant evidence. Common patterns:
-- Effective Dates / Policy Period
-- Deductible Limits / Waiting Periods
-- Coverage Caps / Sublimits
-- Exclusions / Conditions
-- Definition sections that clarify terms used elsewhere
+- Definitions / Clarifications
+- Dates / Timeframes / Deadlines
+- Limits / Thresholds / Caps
+- Conditions / Requirements / Eligibility
+- Exclusions / Exceptions / Limitations
 
 Return valid JSON with this shape:
 {
@@ -398,12 +396,12 @@ Return valid JSON with this shape:
 }
 
 Do not output markdown, prose, or extra keys.
-Be thorough — missing a required node means an incomplete adjudication.
+Be thorough — missing a required node means an incomplete answer.
 """.strip()
 
 retrieval_user_prompt = f"""
 Question:
-{ADJUDICATION_QUESTION}
+{CROSS_REFERENCE_QUESTION}
 
 PageIndex tree:
 {tree_as_prompt_text(tree)}
@@ -510,23 +508,22 @@ print("Evidence preview (multi-hop):\n")
 print(preview_text(evidence_text, limit=4000))
 ```
 
-#### A4) Generate adjudication answer
+#### A4) Generate cross-reference answer
 
 ```python
-adjudication_system_prompt = """
-You are an insurance claims adjudication assistant.
+answer_system_prompt = """
+You are a document analysis assistant.
 
-You have been given evidence from multiple sections of an insurance policy.
-Analyze the evidence to answer the adjudication question.
+You have been given evidence from multiple sections of a document.
+Analyze the evidence to answer the cross-reference question.
 
 Return valid JSON with this shape:
 {
-  "decision": "approve" or "deny" or "needs_review",
-  "final_answer": "clear, concise answer for the claims adjuster",
+  "final_answer": "clear, concise answer based on the combined evidence",
   "explainability": {
-    "effective_dates": "policy period information found",
-    "deductible": "deductible information found",
-    "coverage_limits": "coverage cap information found",
+    "section_a_summary": "key information found in the first relevant section",
+    "section_b_summary": "key information found in the second relevant section",
+    "section_c_summary": "key information found in additional sections (if any)",
     "evidence_used": ["short evidence note 1", "short evidence note 2"]
   }
 }
@@ -534,33 +531,32 @@ Return valid JSON with this shape:
 Ground every statement in the provided evidence. Do not invent facts.
 """.strip()
 
-adjudication_user_prompt = f"""
-Adjudication question:
-{ADJUDICATION_QUESTION}
+answer_user_prompt = f"""
+Question:
+{CROSS_REFERENCE_QUESTION}
 
-Evidence from policy:
+Evidence from document:
 {evidence_text}
 """.strip()
 
-adjudication_response = await call_llm(adjudication_system_prompt, adjudication_user_prompt)
-adjudication_json = extract_json(adjudication_response)
+answer_response = await call_llm(answer_system_prompt, answer_user_prompt)
+answer_json = extract_json(answer_response)
 
-print("Decision:", adjudication_json.get("decision", ""))
 print("\nFinal answer:")
-print(adjudication_json.get("final_answer", ""))
+print(answer_json.get("final_answer", ""))
 print("\nExplainability:")
-print(json.dumps(adjudication_json.get("explainability", {}), indent=2))
+print(json.dumps(answer_json.get("explainability", {}), indent=2))
 ```
 
 ---
 
-### Scenario B: Benefit Tables & Rate Charts
+### Scenario B: Tabular Data & Structured Information
 
 #### B1) Define the table query
 
 ```python
 TABLE_QUESTION = input(
-    "Enter a table-related question (e.g., 'What is the coinsurance rate for out-of-network providers?'): "
+    "Enter a table-related question (e.g., 'What is the value for Product X in the Q3 comparison table?'): "
 ).strip()
 if not TABLE_QUESTION:
     raise ValueError("A question is required to continue.")
@@ -576,9 +572,9 @@ You will receive a user question and a PageIndex tree made of node titles and su
 The question likely requires information from a TABLE, CHART, or SCHEDULE in the document.
 
 Look for nodes that contain:
-- Rate charts / premium tables
-- Benefit schedules / co-pay matrices
-- Coverage limit tables
+- Comparison tables / data tables
+- Schedules / matrices / rate cards
+- Structured lists with columns and rows
 - Any node whose title or summary suggests tabular data
 
 Return valid JSON with this shape:
@@ -624,20 +620,7 @@ for nid in table_node_ids:
 
 T = nx.DiGraph()
 
-tree_sections = [
-    "1 DECLARATIONS",
-    "2 DEFINITIONS",
-    "3 INSURING AGREEMENTS",
-    "4 PROPERTY DAMAGE",
-    "5 GENERAL LIABILITY",
-    "6 CYBER & DATA BREACH",
-    "7 GENERAL EXCLUSIONS",
-    "8 CONDITIONS",
-    "9 CLAIMS PROCEDURE",
-    "10 Schedule of Limits",
-    "11 ENDORSEMENTS",
-    "12 Cross-Reference Index",
-]
+tree_sections = [node.get('title', node_id) for node_id, node in list(node_map.items())[:12]]
 
 T.add_node("Document\nTree", layer=0)
 
@@ -708,14 +691,14 @@ print(preview_text(table_evidence, limit=4000))
 
 ```python
 table_answer_prompt = """
-You are an insurance benefits assistant answering questions from rate charts and tables.
+You are a document analysis assistant answering questions from tables and structured data.
 
-You have been given complete table data extracted from a policy document.
+You have been given complete table data extracted from a document.
 Answer the user's question by reading the table carefully.
 
 Return valid JSON with this shape:
 {
-  "final_answer": "specific answer with exact numbers, rates, or limits from the table",
+  "final_answer": "specific answer with exact values, dates, or figures from the table",
   "table_structure": {
     "table_title": "name or section of the table",
     "relevant_row": "the specific row or cell that answers the question",
@@ -726,7 +709,7 @@ Return valid JSON with this shape:
   }
 }
 
-Always include exact numbers and rates from the table. Do not approximate.
+Always include exact values and figures from the table. Do not approximate.
 """.strip()
 
 table_answer_user = f"""
@@ -753,12 +736,12 @@ print(json.dumps(table_final_json.get("explainability", {}), indent=2))
 In this lab, you extended Vectorless RAG to handle complex, real-world scenarios that break traditional chunking-based retrieval. Key takeaways:
 
 - **Multi-hop retrieval** enables answering questions that require combining facts from distant sections of a document — something single-chunk retrieval cannot achieve. The LLM reasons over the full tree and explicitly selects every relevant node.
-- **Table preservation** is a critical advantage of node-based retrieval. Rate charts, benefit schedules, and co-pay matrices remain intact with their headers, rows, and footnotes — avoiding the fragmentation that chunking introduces.
-- **Structured adjudication output** provides claims adjusters with a clear decision, supporting evidence, and full explainability, making the system suitable for audit and compliance workflows.
+- **Table preservation** is a critical advantage of node-based retrieval. Tables, schedules, and structured data remain intact with their headers, rows, and footnotes — avoiding the fragmentation that chunking introduces.
+- **Cross-reference analysis** provides users with a clear answer, supporting evidence from multiple sections, and full explainability, making the system suitable for audit and compliance workflows.
 - **Visualization** of the retrieval graph (multi-hop and table paths) adds transparency by showing exactly which document sections were accessed and how evidence flows into the final answer.
 
 To extend this pipeline, consider:
-- Adding a pre-check step that validates claim data against policy eligibility before adjudication.
-- Supporting batch adjudication for multiple claims against the same policy.
+- Adding a pre-check step that validates input data against document constraints before answering.
+- Supporting batch queries against the same document for multiple questions.
 - Integrating OCR for scanned PDFs to improve table extraction accuracy.
 - Building a comparison view that shows how chunking-based RAG would fail on the same queries.
