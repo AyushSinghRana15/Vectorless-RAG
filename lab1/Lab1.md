@@ -416,18 +416,20 @@ def tree_as_prompt_text(document_tree: object) -> str:
     return json.dumps(tree_without_text, indent=2)
 
 
-def collect_evidence(node_ids: list[str]) -> dict:
+def collect_evidence(node_ids: list[str], max_chars_per_node: int = 4000, max_nodes: int = 4) -> dict:
     """Return {'text': str, 'sources': [{'node_id': ..., 'page': ..., 'title': ...}]}"""
     parts: list[str] = []
     sources: list[dict] = []
-    for node_id in node_ids:
+    for node_id in node_ids[:max_nodes]:
         node = node_map.get(node_id)
         if not node:
             continue
         text = node.get("text", "")
+        if len(text) > max_chars_per_node:
+            text = text[:max_chars_per_node].rstrip() + "...[truncated]"
         title = node.get("title", node_id)
         page_index = node.get("page_index", "?")
-        parts.append(f"[node={node_id} page={page_index} title={title}]\n{text}")
+        parts.append(f"[Page {page_index}] {title}\n{text}")
         sources.append({"node_id": node_id, "page": page_index, "title": title})
     return {"text": "\n\n".join(parts), "sources": sources}
 
