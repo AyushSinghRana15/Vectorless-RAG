@@ -2,3 +2,5 @@ pageindex
 openai
 python-dotenv
 pymupdf
+python-docx
+reportlab

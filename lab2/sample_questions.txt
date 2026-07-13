@@ -1,6 +1,6 @@
 ================================================================================
 LAB 2: Multi-Hop Claims Adjudication & Benefit Tables — Sample Questions
-PDF: synthetic_medicare_plus_policy_detailed.pdf
+PDF: synthetic_medicare_plus_policy_detailed.pdf + synthetic_motor_insurance_policy.pdf (multi-document)
 ================================================================================
 
 SCENARIO A: MULTI-HOP CLAIMS ADJUDICATION
@@ -135,6 +135,59 @@ Q: If an Insured Person permanently relocates from Zone A (Mumbai) to Zone C
       Requires cross-referencing: Clause 7.11 + Footnote 4.6-a + Section
       4.6 + Section 5.1.
 
+SCENARIO A (CONTINUED): MULTI-HOP CLAIMS — MOTOR INSURANCE
+(Uses DriveSecure Motor Insurance policy)
+These questions require cross-referencing multiple sections of the motor
+policy to reach a conclusion.
+--------------------------------------------------------------------------------
+
+Q: A 7-year-old car with EC3 engine is declared total loss. The owner had
+   40% NCB and the IDV is INR 6,50,000. What is the OD settlement amount?
+   A: Steps:
+      1. IDV = INR 6,50,000 per Clause 4.1 (for a 7-year-old car, depreciation = 50%, but IDV already accounts for it).
+      2. Total Loss = constructive total loss under Clause 8.12 (repair cost exceeds 75% of IDV).
+      3. NCB discount = 40% applied on the own damage premium, NOT on the IDV.
+      4. Own Damage premium = (IDV × own damage rate) − NCB discount.
+      Requires cross-referencing: Clause 4.1 (IDV) + Clause 8.12 (total loss) + Clause 5.6 (NCB).
+
+Q: A policyholder has a voluntary deductible of INR 15,000 and an NCB of
+   50%. What is the effective discount on the own damage premium?
+   A: Step 1: 50% NCB per Clause 5.6.
+      Step 2: 20% discount for voluntary deductible of INR 15,000 per Clause 5.9.
+      These are additive (both apply on the own damage premium).
+      Effective discount = 50% + 20% = 70% on OD premium.
+      Requires cross-referencing: Clause 5.6 + Clause 5.9.
+
+Q: A 3-year-old car suffers partial damage. The repair cost is INR 2,80,000
+   and the IDV is INR 8,00,000. Is this a total loss or partial loss? What
+   is the claim settlement amount?
+   A: Repair cost (INR 2,80,000) = 35% of IDV (INR 8,00,000). Since 35% < 75%
+      threshold under Clause 8.12, this is a PARTIAL LOSS, not total loss.
+      The insurer pays repair cost minus deductible (Clause 8.3) and any
+      applicable depreciation on parts.
+      Requires cross-referencing: Clause 8.12 + Clause 8.3 + Clause 4.3 (depreciation).
+
+Q: What Third Party Liability premium applies for a vehicle with engine
+   capacity 1498cc (EC3) in a private car category?
+   A: Per Section 5.7, Third Party Liability premium for EC3 (1000-1500cc)
+      Class 1 (Private Car) = INR 3,522. This is a compulsory statutory
+      premium — no NCB or voluntary deductible discount applies.
+      Source: Section 5.7 — Third Party Premium Table.
+
+Q: What is the IDV depreciation for a vehicle that is 18 months old?
+   A: Per Clause 4.1, vehicles 12-24 months old have 20% depreciation.
+      IDV = Manufacturer's listed selling price − 20%.
+      Source: Clause 4.1 — IDV Depreciation Table.
+
+Q: A car owner with 30% NCB makes a claim for partial damage. The OD premium
+   before NCB is INR 15,000 and the claim is for INR 25,000. What is the
+   net payout?
+   A: Step 1: NCB discount on OD premium = 30% of INR 15,000 = INR 4,500.
+      Step 2: Net OD premium = INR 15,000 − INR 4,500 = INR 10,500.
+      Step 3: The claim payout is limited to actual repair cost minus
+      deductible (Clause 8.3). NCB affects premium, not payout.
+      Requires cross-referencing: Clause 5.6 (NCB) + Clause 8.3 (deductible).
+
 SCENARIO B: BENEFIT TABLES & RATE CHARTS
 (Uses MediCare Plus policy — Health Insurance)
 These questions require reading specific rate charts, benefit tables, and
@@ -208,6 +261,34 @@ Q: What are the disease-specific waiting periods for Benign Prostatic
       Kidney/Gall Bladder Stone removal.
       Source: Section 6.3 — Disease-Specific Waiting Period Table
 
+SCENARIO B (CONTINUED): TABLES — MOTOR INSURANCE
+(Uses DriveSecure Motor Insurance policy)
+These questions require reading rate charts, depreciation tables, and
+premium schedules from the motor policy.
+--------------------------------------------------------------------------------
+
+Q: What is the Third Party Liability premium for an EC3 engine, Class 2 vehicle?
+   A: Per Section 5.7, Third Party premium for EC3 (1000-1500cc) Class 2 = INR 3,522.
+      Source: Section 5.7 — Third Party Premium Table.
+
+Q: What is the IDV depreciation for a vehicle that is 18 months old?
+   A: Per Clause 4.1, 12-24 months = 20% depreciation.
+      IDV = MRP minus 20%.
+      Source: Clause 4.1 — IDV Depreciation Table.
+
+Q: What voluntary deductible discount applies at INR 15,000?
+   A: Per Clause 5.9, voluntary deductible of INR 15,000 gives 20% discount on OD premium.
+      Source: Clause 5.9 — Voluntary Deductible Discount Table.
+
+Q: What is the depreciation rate for rubber/plastic parts for a vehicle older
+   than 5 years?
+   A: Per Clause 4.3, rubber, nylon, plastic parts = 50% depreciation for vehicles > 5 years old.
+      Source: Clause 4.3 — Depreciation on Parts Table.
+
+Q: What NCB percentage applies for 5+ consecutive claim-free years?
+   A: Per Clause 5.6, maximum NCB = 50% (achieved after 5+ consecutive claim-free years).
+      Source: Clause 5.6 — NCB Schedule.
+
 COMBINED / COMPLEX QUESTIONS (test multi-hop across tables)
 --------------------------------------------------------------------------------
 
@@ -258,3 +339,36 @@ Q: A 70-year-old in Zone C rated policy is treated in a Zone A hospital
          premium, not claim).
       Requires: Sections 4.5 + 4.6 + 4.8 + 4.9 + Footnotes 4.8-a, 4.9-a
       + Section 5.9
+
+Q: A 5-year-old car with 50% NCB and INR 10,000 voluntary deductible is
+   total loss. The car's original price was INR 10,00,000. What is the
+   final settlement?
+   A: Steps:
+      1. IDV depreciation (Clause 4.1): 5-year-old car → 50% depreciation.
+         IDV = INR 10,00,000 × 50% = INR 5,00,000.
+      2. Total Loss (Clause 8.12): repair cost exceeds 75% of IDV → settlement = IDV.
+      3. NCB (Clause 5.6): 50% discount on OD premium, not on IDV.
+      4. Voluntary deductible (Clause 5.9): INR 10,000 → 15% discount on OD premium.
+      5. Settlement = IDV = INR 5,00,000 (minus any applicable taxes).
+      Requires: Clause 4.1 + Clause 8.12 + Clause 5.6 + Clause 5.9
+
+MULTI-DOCUMENT CROSS-REFERENCING QUESTIONS
+(Requires information from BOTH MediCare Plus and DriveSecure policies)
+--------------------------------------------------------------------------------
+
+Q: Compare the waiting periods: what is the disease-specific waiting period
+   for Cataract surgery in the health policy vs. the waiting period for
+   voluntary deductible discount in the motor policy?
+   A: Health (MediCare Plus): Cataract = 2 years disease-specific waiting
+      period (Section 6.3).
+      Motor (DriveSecure): Voluntary deductible discount — no waiting
+      period, applies immediately (Clause 5.9).
+      Cross-referencing: Section 6.3 (health) + Clause 5.9 (motor).
+
+Q: Which policy offers a higher percentage discount for consecutive claim-free
+   years: health policy Cumulative Bonus or motor policy NCB?
+   A: Health (MediCare Plus): Cumulative Bonus max = 50% (Section 4.10).
+      Motor (DriveSecure): NCB max = 50% (Clause 5.6).
+      Both cap at 50% but work differently: health bonus increases Sum
+      Insured, while motor NCB reduces premium.
+      Cross-referencing: Section 4.10 (health) + Clause 5.6 (motor).
