@@ -1,34 +1,34 @@
 # 1. Lab Title
 
-## Vectorless RAG: Reasoning-Based Retrieval with Vision-Language Models
+## Vectorless RAG: Reasoning-Based Retrieval without Embeddings
 
 # What is Vectorless RAG?
 
-**Vectorless RAG** replaces embeddings, vector stores, and text chunking with a single idea: let a Vision-Language Model (VLM) *reason over a document tree* and then *visually read* the actual PDF pages.
+**Vectorless RAG** replaces embeddings, vector stores, and text chunking with a single idea: let a Language Model (LLM) *reason over a document tree* and then *read the extracted text* from relevant pages.
 
-Traditional RAG pipelines embed text chunks into a vector database and retrieve via cosine similarity. This works well for plain text, but **loses layout, figures, tables, and equations** — information that lives in the *visual structure* of a document.
+Traditional RAG pipelines embed text chunks into a vector database and retrieve via cosine similarity. This works well for plain text, but can be overkill for structured documents like PDFs.
 
 Vectorless RAG takes a different approach:
-- **No embeddings** — the VLM reads titles and summaries to find relevant sections.
+- **No embeddings** — the LLM reads titles and summaries to find relevant sections.
 - **No vector store** — retrieval is done by reasoning, not similarity.
-- **No text chunking** — the VLM inspects rendered page images directly.
+- **No text chunking** — the LLM reads extracted text from the original pages.
 
-This preserves the full visual context of the original document.
+This is simpler, faster, and easier to understand.
 
 # 2. Problem Statement / Use Case Overview
 
-How do we query a PDF and get accurate answers that respect figures, tables, and document layout — without building a vector database?
+How do we query a PDF and get accurate answers without building a vector database?
 
 The pipeline works in two stages:
 
-1. **Tree-based retrieval** — A VLM reads a hierarchical tree of the document (titles + summaries only) and reasons about which sections are most relevant to the user's question.
-2. **Visual QA** — The VLM then *visually reads* the actual PDF page images corresponding to those sections and generates an answer grounded in the original layout.
+1. **Tree-based retrieval** — An LLM reads a hierarchical tree of the document (titles + summaries only) and reasons about which sections are most relevant to the user's question.
+2. **Text-based QA** — The LLM then reads the extracted text from those pages and generates an answer.
 
 This is especially useful for:
-- Academic papers with figures and equations
-- Financial reports with charts and tables
-- Technical documentation with diagrams
-- Legal documents where formatting carries meaning
+- Policy documents and contracts
+- Technical documentation
+- Reports and manuals
+- Any structured PDF where you want fast, accurate answers
 
 # 3. Input Data
 
@@ -37,7 +37,7 @@ This is especially useful for:
 | User query | Natural-language question about a PDF document |
 | PDF document | Medicare Plus health insurance policy (`data/synthetic_medicare_plus_policy_detailed.pdf`) |
 | PageIndex API Key | Used to parse the PDF into a hierarchical tree |
-| OpenRouter API Key | Used to call the Vision-Language Model (Llama 4 Scout) |
+| OpenRouter API Key | Used to call the Language Model (Llama 4 Scout) |
 
 # 4. Processing
 
@@ -46,11 +46,11 @@ flowchart TD
     A(["User asks a question"]) --> B["Submit PDF to PageIndex"]
     B --> C["PageIndex builds hierarchical tree\n(titles + summaries)"]
     C --> D["Strip full text — keep only\ntitles + summaries"]
-    D --> E["VLM reads tree + question\nand reasons about relevance"]
-    E --> F["VLM picks relevant nodes"]
+    D --> E["LLM reads tree + question\nand reasons about relevance"]
+    E --> F["LLM picks relevant nodes"]
     F --> G["Map nodes to page numbers"]
-    G --> H["Render matching PDF pages\nas high-res images"]
-    H --> I["VLM visually reads page images\nand generates answer"]
+    G --> H["Extract text from matching\nPDF pages"]
+    H --> I["LLM reads extracted text\nand generates answer"]
     I --> J(["Final answer"])
 
     style A fill:#e1f5fe,stroke:#0288d1
@@ -60,25 +60,23 @@ flowchart TD
 ```
 
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections, each annotated with a title and summary.
-2. The **VLM** receives the tree (without full text) and the user's question. It reasons over titles and summaries to identify which nodes are most likely to contain the answer.
-3. The matching PDF pages are **rendered as JPEG images** using PyMuPDF.
-4. The **VLM** answers the question by visually inspecting those page images — preserving layout, figures, and tables.
+2. The **LLM** receives the tree (without full text) and the user's question. It reasons over titles and summaries to identify which nodes are most likely to contain the answer.
+3. The text from matching PDF pages is **extracted** using PyMuPDF.
+4. The **LLM** answers the question by reading the extracted text — providing accurate, grounded answers.
 
 # 5. Output
 
-A natural-language answer grounded in the actual PDF page images, e.g.:
+A natural-language answer grounded in the extracted text, e.g.:
 
 > _"The GST rate applied to the premium is 18%, as specified in Section 5.13 of the policy document."_
-
-Additionally, a **Mermaid diagram** of the pipeline architecture is rendered inline in the notebook.
 
 # 6. Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| VLM | Llama 4 Scout via OpenRouter |
+| LLM | Llama 4 Scout via OpenRouter |
 | Document Parsing | PageIndex API |
-| PDF Rendering | PyMuPDF (`fitz`) |
+| PDF Text Extraction | PyMuPDF (`fitz`) |
 | LLM Client | OpenAI SDK (compatible with OpenRouter) |
 | Language | Python 3.12 |
 | Runtime | Jupyter Notebook |
@@ -87,9 +85,8 @@ Additionally, a **Mermaid diagram** of the pipeline architecture is rendered inl
 
 - **Vectorless Retrieval** — Finding relevant document sections by reasoning over titles and summaries, not by cosine similarity over embeddings.
 - **Hierarchical Document Tree** — A nested structure of sections and subsections produced by PageIndex, enabling targeted retrieval at the right granularity.
-- **Visual Question Answering (VQA)** — The VLM reads rendered page images instead of extracted text, preserving layout, figures, tables, and equations.
-- **Vision-Language Model (VLM)** — A model that can process both text and images, enabling it to visually inspect PDF pages.
-- **Two-Stage Retrieval** — First, the VLM identifies relevant sections via the tree. Then, it reads the actual pages to generate the answer.
+- **Text-Based QA** — The LLM reads extracted text from the original pages, preserving content without the overhead of image processing.
+- **Two-Stage Retrieval** — First, the LLM identifies relevant sections via the tree. Then, it reads the actual page text to generate the answer.
 
 > Refer to the original implementation: [Clement-Okolo/Vectorless-Rag](https://github.com/Clement-Okolo/Vectorless-Rag)
 
@@ -110,7 +107,7 @@ The cell below installs all required Python packages:
 | `pageindex` | Document tree generation and retrieval via PageIndex API |
 | `openai` | LLM client (used with OpenRouter's OpenAI-compatible endpoint) |
 | `python-dotenv` | Load API keys from `.env` file |
-| `pymupdf` | Render PDF pages as high-quality JPEG images |
+| `pymupdf` | Extract text from PDF pages |
 
 Run this cell first — it only needs to be run once per session.
 
@@ -125,9 +122,8 @@ Your API keys are stored in the `.env` file in the project root. The cell below 
 ```python
 import os
 import json
-import base64
 import re
-import fitz  # PyMuPDF
+import fitz  # PyMuPDF — extracts text from PDF
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -139,54 +135,41 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 print("Keys loaded.")
 ```
 
-### Set up the VLM
+### Set up the LLM
 
-This function sends prompts (and optionally images) to the VLM via OpenRouter.
+This function sends prompts to the LLM via OpenRouter.
 
 ```python
-def call_vlm(prompt, image_paths=None, model="meta-llama/llama-4-scout-17b-16e-instruct"):
-    """Call a vision model via OpenRouter."""
+def call_llm(prompt, model="meta-llama/llama-4-scout-17b-16e-instruct"):
+    """Call a language model via OpenRouter."""
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=OPENROUTER_API_KEY,
     )
-    if image_paths:
-        content = [{"type": "text", "text": prompt}]
-        for img in image_paths:
-            if os.path.exists(img):
-                with open(img, "rb") as f:
-                    b64 = base64.b64encode(f.read()).decode()
-                content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
-        msgs = [{"role": "user", "content": content}]
-    else:
-        msgs = [{"role": "user", "content": prompt}]
+    msgs = [{"role": "user", "content": prompt}]
     resp = client.chat.completions.create(model=model, messages=msgs, temperature=0, max_tokens=1024)
     return resp.choices[0].message.content.strip()
 ```
 
 ---
 
-## Step 1 — Render PDF Pages
+## Step 1 — Extract Text from PDF
 
-Convert each page of the PDF into a high-resolution JPEG image. These images will be used as visual context for the VLM later.
+Extract text from each page of the PDF. This text will be used as context for the LLM later.
 
 ```python
 PDF_PATH = "data/synthetic_medicare_plus_policy_detailed.pdf"
 
-def extract_page_images(pdf_path, out="pdf_images"):
-    os.makedirs(out, exist_ok=True)
+def extract_page_text(pdf_path):
     doc = fitz.open(pdf_path)
-    imgs = {}
+    texts = {}
     for i in range(len(doc)):
-        pix = doc.load_page(i).get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
-        path = os.path.join(out, f"page_{i+1}.jpg")
-        open(path, "wb").write(pix.tobytes("jpeg"))
-        imgs[i+1] = path
+        texts[i+1] = doc.load_page(i).get_text()
     doc.close()
-    return imgs
+    return texts
 
-page_images = extract_page_images(PDF_PATH)
-print(f"Rendered {len(page_images)} pages.")
+page_texts = extract_page_text(PDF_PATH)
+print(f"Extracted text from {len(page_texts)} pages.")
 ```
 
 ---
@@ -276,13 +259,13 @@ QUERY = "What is the GST rate applied to the premium?"
 
 ---
 
-## Step 4 — VLM Finds Relevant Sections
+## Step 4 — LLM Finds Relevant Sections
 
-The VLM reads the tree (titles + summaries only — no full text) and picks which nodes likely contain the answer.
+The LLM reads the tree (titles + summaries only — no full text) and picks which nodes likely contain the answer.
 
 ```mermaid
 flowchart LR
-    A["Question"] --> C["VLM"]
+    A["Question"] --> C["LLM"]
     B["Tree\n(titles + summaries)"] --> C
     C --> D["Thinking\n+ node IDs"]
     style A fill:#e1f5fe
@@ -311,11 +294,11 @@ Reply in this JSON format ONLY:
 }}
 """
 
-raw_result = call_vlm(search_prompt)
+raw_result = call_llm(search_prompt)
 print(raw_result)
 ```
 
-Parse the VLM's response and display the retrieved nodes.
+Parse the LLM's response and display the retrieved nodes.
 
 ```python
 def parse_json(text):
@@ -326,7 +309,7 @@ def parse_json(text):
     return json.loads(text)
 
 result = parse_json(raw_result)
-node_map = utils.create_node_mapping(tree, include_page_ranges=True, max_page=len(page_images))
+node_map = utils.create_node_mapping(tree, include_page_ranges=True, max_page=len(page_texts))
 
 print("Reasoning:", result["thinking"], "\n")
 print("Retrieved nodes:")
@@ -338,15 +321,15 @@ for nid in result["node_list"]:
 
 ---
 
-## Step 5 — VLM Answers from Page Images
+## Step 5 — LLM Answers from Extracted Text
 
-Map the retrieved node IDs to page numbers, render those pages as images, and have the VLM visually read them to generate the answer.
+Map the retrieved node IDs to page numbers, extract text from those pages, and have the LLM read it to generate the answer.
 
 ```mermaid
 flowchart LR
     A["Node IDs"] --> B["Map to pages"]
-    B --> C["Page images"]
-    D["Question"] --> E["VLM"]
+    B --> C["Extracted text"]
+    D["Question"] --> E["LLM"]
     C --> E
     E --> F["Answer"]
     style A fill:#fff3e0
@@ -355,33 +338,36 @@ flowchart LR
 ```
 
 ```python
-def images_for_nodes(nodes, node_map, page_images):
-    paths, seen = [], set()
+def text_for_nodes(nodes, node_map, page_texts):
+    texts, seen = [], set()
     for nid in nodes:
         info = node_map[nid]
         for p in range(info["start_index"], info["end_index"] + 1):
-            if p not in seen and p in page_images:
-                paths.append(page_images[p])
+            if p not in seen and p in page_texts:
+                texts.append(f"--- Page {p} ---\n{page_texts[p]}")
                 seen.add(p)
-    return paths
+    return "\n\n".join(texts)
 
-images = images_for_nodes(result["node_list"], node_map, page_images)
-print(f"Using {len(images)} page image(s).")
+context = text_for_nodes(result["node_list"], node_map, page_texts)
+print(f"Using {len(context.splitlines())} lines of text.")
 ```
 
 ```python
 answer_prompt = f"""
-Answer the question based on the provided page images.
+Answer the question based on the provided text.
+
+Context:
+{context}
 
 Question: {QUERY}
 
 Rules:
-- Answer only from the images
+- Answer only from the context
 - If the answer isn't there, say so
 - Be concise
 """
 
-answer = call_vlm(answer_prompt, image_paths=images)
+answer = call_llm(answer_prompt)
 print(answer)
 ```
 
