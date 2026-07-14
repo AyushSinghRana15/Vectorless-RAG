@@ -3,4 +3,6 @@
 .DS_Store
 __pycache__/
 lab1/data/
+lab1/cache/
+lab1/pdf_images/
 lab2/data/
