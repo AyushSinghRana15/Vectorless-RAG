@@ -202,7 +202,7 @@ The tree is saved to `cache/` as a JSON file keyed by the PDF filename. On repea
 ```python
 from pageindex import PageIndexClient
 from pageindex import utils
-import hashlib
+import time
 
 CACHE_DIR = "cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -245,11 +245,21 @@ if tree is None:
     doc_id = result["doc_id"]
     print(f"Submitted: {doc_id}")
 
-    if pi.is_retrieval_ready(doc_id):
-        tree = pi.get_tree(doc_id, node_summary=True)["result"]
-        save_tree_to_cache(PDF_PATH, tree)
+    # Poll until ready (max 5 min)
+    print("Waiting for PageIndex to process...")
+    elapsed = 0
+    while elapsed < 300:
+        if pi.is_retrieval_ready(doc_id):
+            break
+        time.sleep(5)
+        elapsed += 5
+        print(f"  {elapsed}s...")
     else:
-        print("Still processing — try again shortly.")
+        raise TimeoutError(f"PageIndex did not finish within {elapsed}s. Try again later.")
+
+    print(f"Ready after {elapsed}s")
+    tree = pi.get_tree(doc_id, node_summary=True)["result"]
+    save_tree_to_cache(PDF_PATH, tree)
 
 utils.print_tree(tree, exclude_fields=["text"])
 ```
