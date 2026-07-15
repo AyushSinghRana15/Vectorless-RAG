@@ -102,45 +102,6 @@ graph TD
     style D2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
 ```
 
-### Vector RAG vs Vectorless RAG
-
-```mermaid
-flowchart LR
-    subgraph TraditionalVectorRAG["Traditional Vector RAG"]
-        direction TB
-        V1["Chunk text into fixed-size pieces"] --> V2["Generate embeddings for each chunk"]
-        V2 --> V3["Store in vector database"]
-        V4["User query"] --> V5["Embed query"]
-        V5 --> V6["Cosine similarity search"]
-        V6 --> V7["Retrieve top-k chunks"]
-        V7 --> V8["LLM generates answer"]
-    end
-
-    subgraph VectorlessRAG["Vectorless RAG"]
-        direction TB
-        N1["Parse PDF into document tree"] --> N2["LLM reads tree + question"]
-        N2 --> N3["LLM reasons about relevance"]
-        N3 --> N4["LLM picks relevant pages"]
-        N4 --> N5["Extract text from those pages"]
-        N5 --> N6["LLM reads text + generates answer"]
-    end
-
-    style V1 fill:#ffebee,stroke:#c62828,color:#b71c1c
-    style V2 fill:#ffebee,stroke:#c62828,color:#b71c1c
-    style V3 fill:#ffebee,stroke:#c62828,color:#b71c1c
-    style V4 fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style V5 fill:#ffebee,stroke:#c62828,color:#b71c1c
-    style V6 fill:#ffebee,stroke:#c62828,color:#b71c1c
-    style V7 fill:#ffebee,stroke:#c62828,color:#b71c1c
-    style V8 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    style N1 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    style N2 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    style N3 fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style N4 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    style N5 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    style N6 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-```
-
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections, each annotated with a title and summary.
 2. The **LLM** receives the tree (without full text) and the user's question. It reasons over titles and summaries to identify which nodes are most likely to contain the answer.
 3. The text from matching PDF pages is **extracted** using PyMuPDF.
@@ -151,26 +112,6 @@ flowchart LR
 A natural-language answer grounded in the extracted text, e.g.:
 
 > _"The total revenues for Q1 2025 were $XXX million, as reported in the earnings release."_
-
-# 6. Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| LLM | Llama 4 Scout via OpenRouter |
-| Document Parsing | PageIndex API |
-| PDF Text Extraction | PyMuPDF (`pymupdf`) |
-| LLM Client | OpenAI SDK (compatible with OpenRouter) |
-| Language | Python 3.12 |
-| Runtime | Jupyter Notebook |
-
-# 7. Underlying Concepts
-
-- **Vectorless Retrieval** — Finding relevant document sections by reasoning over titles and summaries, not by cosine similarity over embeddings.
-- **Hierarchical Document Tree** — A nested structure of sections and subsections produced by PageIndex, enabling targeted retrieval at the right granularity.
-- **Text-Based QA** — The LLM reads extracted text from the original pages, preserving content without the overhead of image processing.
-- **Two-Stage Retrieval** — First, the LLM identifies relevant sections via the tree. Then, it reads the actual page text to generate the answer.
-
-> Refer to the original implementation: [Clement-Okolo/Vectorless-Rag](https://github.com/Clement-Okolo/Vectorless-Rag)
 
 # 8. Pre-requisites
 
