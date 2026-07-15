@@ -41,6 +41,8 @@ This is especially useful for:
 
 # 4. Processing
 
+### Overall Workflow
+
 ```mermaid
 flowchart TD
     A(["User asks a question"]) --> B["Submit PDF to PageIndex"]
@@ -65,6 +67,80 @@ flowchart TD
     style J fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
+### How PageIndex Builds the Tree
+
+PageIndex parses the PDF into a hierarchical tree. The root represents the entire document, middle nodes represent sections/subsections, and leaf nodes represent individual pages.
+
+```mermaid
+graph TD
+    R["Root: Document Title"] --> A["Section 1: Introduction"]
+    R --> B["Section 2: Financial Results"]
+    R --> C["Section 3: Balance Sheet"]
+    R --> D["Section 4: Cash Flow"]
+
+    B --> B1["Page 3: Revenue Summary"]
+    B --> B2["Page 4: Net Income"]
+    B --> B3["Page 5: EPS Breakdown"]
+
+    C --> C1["Page 6: Assets & Liabilities"]
+    C --> C2["Page 7: Equity"]
+
+    D --> D1["Page 8: Operating Cash Flow"]
+    D --> D2["Page 9: Investing & Financing"]
+
+    style R fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style A fill:#f5f5f5,stroke:#616161,color:#212121
+    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style C fill:#f5f5f5,stroke:#616161,color:#212121
+    style D fill:#f5f5f5,stroke:#616161,color:#212121
+    style B1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style B2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style B3 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style C1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style C2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style D1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style D2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+```
+
+### Vector RAG vs Vectorless RAG
+
+```mermaid
+flowchart LR
+    subgraph传统Vector RAG
+        direction TB
+        V1["Chunk text into fixed-size pieces"] --> V2["Generate embeddings for each chunk"]
+        V2 --> V3["Store in vector database"]
+        V4["User query"] --> V5["Embed query"]
+        V5 --> V6["Cosine similarity search"]
+        V6 --> V7["Retrieve top-k chunks"]
+        V7 --> V8["LLM generates answer"]
+    end
+
+    subgraph Vectorless RAG
+        direction TB
+        N1["Parse PDF into document tree"] --> N2["LLM reads tree + question"]
+        N2 --> N3["LLM reasons about relevance"]
+        N3 --> N4["LLM picks relevant pages"]
+        N4 --> N5["Extract text from those pages"]
+        N5 --> N6["LLM reads text + generates answer"]
+    end
+
+    style V1 fill:#ffebee,stroke:#c62828,color:#b71c1c
+    style V2 fill:#ffebee,stroke:#c62828,color:#b71c1c
+    style V3 fill:#ffebee,stroke:#c62828,color:#b71c1c
+    style V4 fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style V5 fill:#ffebee,stroke:#c62828,color:#b71c1c
+    style V6 fill:#ffebee,stroke:#c62828,color:#b71c1c
+    style V7 fill:#ffebee,stroke:#c62828,color:#b71c1c
+    style V8 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style N1 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style N2 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style N3 fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style N4 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style N5 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style N6 fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+```
+
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections, each annotated with a title and summary.
 2. The **LLM** receives the tree (without full text) and the user's question. It reasons over titles and summaries to identify which nodes are most likely to contain the answer.
 3. The text from matching PDF pages is **extracted** using PyMuPDF.
@@ -82,7 +158,7 @@ A natural-language answer grounded in the extracted text, e.g.:
 |-------|------------|
 | LLM | Llama 4 Scout via OpenRouter |
 | Document Parsing | PageIndex API |
-| PDF Text Extraction | PyMuPDF (`fitz`) |
+| PDF Text Extraction | PyMuPDF (`pymupdf`) |
 | LLM Client | OpenAI SDK (compatible with OpenRouter) |
 | Language | Python 3.12 |
 | Runtime | Jupyter Notebook |
@@ -125,15 +201,14 @@ Run this cell first — it only needs to be run once per session.
 
 ## Import Libraries
 
-Import the standard library and third-party modules used throughout the notebook. `os` and `json` handle file paths and caching. `re` parses JSON from LLM responses. `fitz` (PyMuPDF) extracts text from PDFs. `OpenAI` is the LLM client. `load_dotenv` loads API keys from the `.env` file.
+Import the standard library and third-party modules used throughout the notebook. `os` and `json` handle file paths and caching. `re` parses JSON from LLM responses. `pymupdf` extracts text from PDFs. `OpenAI` is the LLM client. `load_dotenv` loads API keys from the `.env` file.
 
 ```python
-import os
-import json
-import re
-import fitz  # PyMuPDF — extracts text from PDF
-from openai import OpenAI
-from dotenv import load_dotenv
+import os       # for environment variables
+import json     # for parsing LLM JSON responses
+import pymupdf  # for extracting text from PDF files
+from openai import OpenAI  # OpenAI-compatible client (works with OpenRouter)
+from dotenv import load_dotenv  # loads API keys from .env file
 ```
 
 ## Load API Keys
@@ -162,23 +237,18 @@ print("Keys loaded.")
 Sends a prompt to the LLM via OpenRouter and returns the response text. Creates a fresh OpenAI client pointed at OpenRouter's API endpoint (`https://openrouter.ai/api/v1`). Uses `meta-llama/llama-4-scout-17b-16e-instruct` by default with `temperature=0` for deterministic output.
 
 ```python
-def call_llm(prompt, model="meta-llama/llama-4-scout-17b-16e-instruct"):
-    """Call a language model via OpenRouter.
-
-    Args:
-        prompt: The text prompt to send to the model.
-        model: The model identifier on OpenRouter.
-
-    Returns:
-        The model's text response.
-    """
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
-    )
-    msgs = [{"role": "user", "content": prompt}]
-    resp = client.chat.completions.create(model=model, messages=msgs, temperature=0, max_tokens=1024)
-    return resp.choices[0].message.content.strip()
+# Calls an LLM via OpenRouter's OpenAI-compatible API
+# - prompt: the text to send to the model
+# - model: which model to use (default is free tier)
+def call_llm(prompt, model="nvidia/nemotron-3-ultra-550b-a55b:free"):
+    # Create OpenAI-compatible client pointed at OpenRouter
+    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+    return client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],  # single user message
+        temperature=0,   # deterministic output (no randomness)
+        max_tokens=512  # cap response length
+    ).choices[0].message.content.strip()
 ```
 
 ---
@@ -187,135 +257,52 @@ def call_llm(prompt, model="meta-llama/llama-4-scout-17b-16e-instruct"):
 
 Extract text from each page of the PDF using PyMuPDF. This text will be used as context for the LLM in the final answer step.
 
-### Define PDF Path
-
-Set the path to the PDF document you want to query.
+### Extract Text from PDF
 
 ```python
 PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
-```
 
-### `extract_page_text(pdf_path)`
-
-Opens a PDF with PyMuPDF (`fitz`) and extracts the text from each page. Returns a dictionary mapping 1-based page numbers to their extracted text strings. This preserves the original text flow, which is important for maintaining table structure and formatting.
-
-```python
-def extract_page_text(pdf_path):
-    """Extract text from each PDF page.
-
-    Returns:
-        dict mapping 1-based page number to extracted text
-    """
-    doc = fitz.open(pdf_path)
-    texts = {}
-    for i in range(len(doc)):
-        texts[i+1] = doc.load_page(i).get_text()
-    doc.close()
-    return texts
-```
-
-### Run Extraction
-
-Call the extraction function on the PDF and print how many pages were processed.
-
-```python
-page_texts = extract_page_text(PDF_PATH)
+doc = pymupdf.open(PDF_PATH)
+# len(doc) = total pages; i goes from 0 to len(doc)-1
+# i+1 makes page numbers 1-based (page 1, 2, 3...)
+# doc.load_page(i).get_text() extracts raw text from page i
+page_texts = {i+1: doc.load_page(i).get_text() for i in range(len(doc))}
+doc.close()
 print(f"Extracted text from {len(page_texts)} pages.")
 ```
 
 ---
 
-## Step 2 — Build Document Tree (with caching)
+## Step 2 — Build Document Tree
 
-The PageIndex API parses the PDF into a hierarchical tree of sections and subsections, each annotated with a title and summary. The tree is saved to `cache/` as a JSON file keyed by the PDF filename. On repeat runs with the same PDF, the cached tree is loaded instantly — no need to re-process with PageIndex.
+The PageIndex API parses the PDF into a hierarchical tree of sections and subsections, each annotated with a title and summary.
 
-### Set Up Caching
-
-Import the PageIndex client and utility functions, and define the cache directory. The cache stores the document tree as JSON so we don't have to re-call the PageIndex API for the same PDF.
+### Build Document Tree
 
 ```python
 from pageindex import PageIndexClient
 from pageindex import utils
 import time
 
-CACHE_DIR = "cache"
-os.makedirs(CACHE_DIR, exist_ok=True)
-```
-
-### `get_cache_path(pdf_path)`
-
-Generates the cache file path based on the PDF filename. For example, `data/my_doc.pdf` becomes `cache/my_doc_tree.json`.
-
-```python
-def get_cache_path(pdf_path):
-    """Generate a cache file path based on the PDF filename."""
-    pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
-    return os.path.join(CACHE_DIR, f"{pdf_name}_tree.json")
-```
-
-### `load_cached_tree(pdf_path)`
-
-Attempts to load a previously saved tree from the cache. Returns the tree dict if found, or `None` if no cache exists (cache miss). This avoids redundant API calls when running the notebook multiple times with the same PDF.
-
-```python
-def load_cached_tree(pdf_path):
-    """Load tree from cache if it exists, otherwise return None."""
-    cache_path = get_cache_path(pdf_path)
-    if os.path.exists(cache_path):
-        with open(cache_path, "r") as f:
-            tree = json.load(f)
-        print(f"Loaded tree from cache: {cache_path}")
-        return tree
-    return None
-```
-
-### `save_tree_to_cache(pdf_path, tree)`
-
-Saves the PageIndex tree to a JSON file so future runs with the same PDF can skip the API call entirely.
-
-```python
-def save_tree_to_cache(pdf_path, tree):
-    """Save the PageIndex tree to a JSON file for future reuse."""
-    cache_path = get_cache_path(pdf_path)
-    with open(cache_path, "w") as f:
-        json.dump(tree, f, indent=2)
-    print(f"Tree saved to cache: {cache_path}")
-```
-
-### Load or Build the Tree
-
-Try loading the tree from cache first. If it's a cache miss, submit the PDF to PageIndex, poll until processing completes (up to 5 minutes), then save the result to cache. Finally, display the tree structure (titles + summaries only, no full text).
-
-```python
+# Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
+result = pi.submit_document(PDF_PATH)
+doc_id = result["doc_id"]
+print(f"Submitted: {doc_id}")
 
-# Try loading from cache first — avoids re-processing the same PDF
-tree = load_cached_tree(PDF_PATH)
+# Poll until processing completes (max 5 min)
+elapsed = 0
+while elapsed < 300:
+    if pi.is_retrieval_ready(doc_id):
+        break
+    time.sleep(5)
+    elapsed += 5
+    print(f"  {elapsed}s...")
+else:
+    raise TimeoutError("PageIndex timeout")
 
-if tree is None:
-    # Cache miss — submit PDF to PageIndex for tree generation
-    print("Cache miss — submitting to PageIndex...")
-    result = pi.submit_document(PDF_PATH)
-    doc_id = result["doc_id"]
-    print(f"Submitted: {doc_id}")
-
-    # Poll until PageIndex finishes processing (max 5 min)
-    print("Waiting for PageIndex to process...")
-    elapsed = 0
-    while elapsed < 300:
-        if pi.is_retrieval_ready(doc_id):
-            break
-        time.sleep(5)
-        elapsed += 5
-        print(f"  {elapsed}s...")
-    else:
-        raise TimeoutError(f"PageIndex did not finish within {elapsed}s. Try again later.")
-
-    print(f"Ready after {elapsed}s")
-    tree = pi.get_tree(doc_id, node_summary=True)["result"]
-    save_tree_to_cache(PDF_PATH, tree)
-
-# Display the tree structure (titles + summaries, no full text)
+# Retrieve the hierarchical tree (titles + summaries, no full text)
+tree = pi.get_tree(doc_id, node_summary=True)["result"]
 utils.print_tree(tree, exclude_fields=["text"])
 ```
 
@@ -337,12 +324,15 @@ The LLM reads the tree (titles + summaries only — no full text) and picks whic
 
 ### Search the Tree
 
-Remove full text from the tree and build a prompt asking the LLM to reason over titles and summaries to identify relevant nodes. The LLM returns a JSON response with its reasoning and a list of node IDs.
-
 ```python
+# Strip full text from tree — LLM only needs titles + summaries to pick relevant nodes
 tree_slim = utils.remove_fields(tree.copy(), fields=["text"])
 
+# Ask the LLM which nodes are relevant to the question
+# We use JSON format so we can reliably extract structured data
 search_prompt = f"""
+IMPORTANT: You MUST respond with valid JSON only. No other text.
+
 You are given a question and a document tree.
 Each node has: node_id, title, summary.
 Find all nodes likely to contain the answer.
@@ -352,47 +342,40 @@ Question: {QUERY}
 Document tree:
 {json.dumps(tree_slim, indent=2)}
 
-Reply in this JSON format ONLY:
+Respond with ONLY this JSON format:
 {{
     "thinking": "<your reasoning>",
     "node_list": ["node_id_1", "node_id_2"]
 }}
 """
 
-raw_result = call_llm(search_prompt)
-print(raw_result)
-```
+# Try to parse JSON — handle cases where LLM adds extra text or returns invalid JSON
+try:
+    result = json.loads(call_llm(search_prompt))
+except json.JSONDecodeError:
+    # Fallback: try to extract JSON from the response using regex
+    import re
+    match = re.search(r'\{{.*\}}', call_llm(search_prompt), re.DOTALL)
+    if match:
+        result = json.loads(match.group())
+    else:
+        print("Could not parse LLM response. Using empty result.")
+        result = {"thinking": "", "node_list": []}
 
-### `parse_json(text)`
-
-Extracts a JSON object from the LLM's response text. Handles markdown code fences (```` ```json ... ``` ````) that LLMs often wrap around JSON output, then parses the inner JSON. Returns the parsed dict.
-
-```python
-def parse_json(text):
-    """Extract JSON from LLM response, handling markdown code fences."""
-    text = re.sub(r"```json\s*|\s*```", "", text.strip())
-    s, e = text.find("{"), text.rfind("}")
-    if s != -1 and e != -1:
-        text = text[s:e+1]
-    text = re.sub(r'[\x00-\x1f\x7f]', ' ', text)
-    return json.loads(text)
-```
-
-### Display Retrieved Nodes
-
-Parse the LLM's response, build a mapping from node IDs to their info (title, page range), and display each retrieved node with its page numbers and title.
-
-```python
-result = parse_json(raw_result)
-
+# Map node IDs to their metadata (title, page range, etc.)
 node_map = utils.create_node_mapping(tree, include_page_ranges=True, max_page=len(page_texts))
 
-print("Reasoning:", result["thinking"], "\n")
+# Display the LLM's reasoning and which nodes it selected
+print("\nReasoning:", result.get("thinking", ""), "\n")
 print("Retrieved nodes:")
-for nid in result["node_list"]:
-    info = node_map[nid]
-    pages = info['start_index'] if info['start_index'] == info['end_index'] else f"{info['start_index']}-{info['end_index']}"
-    print(f"  {nid} | Pages {pages} | {info['node']['title']}")
+for nid in result.get("node_list", []):
+    if nid in node_map:
+        info = node_map[nid]
+        # Show single page number or range (e.g. "3" or "3-5")
+        pages = info['start_index'] if info['start_index'] == info['end_index'] else f"{info['start_index']}-{info['end_index']}"
+        print(f"  {nid} | Pages {pages} | {info['node']['title']}")
+    else:
+        print(f"  {nid} | not found in tree")
 ```
 
 ---
@@ -401,29 +384,23 @@ for nid in result["node_list"]:
 
 Map the retrieved node IDs to page numbers, extract text from those pages, and have the LLM read it to generate the final answer.
 
-### `text_for_nodes(nodes, node_map, page_texts)`
-
-Takes the list of relevant node IDs, looks up their page ranges in the node map, and collects the extracted text from those pages. Deduplicates pages (a page may appear in multiple nodes) and joins them with page separators. Returns a single string of all relevant page text.
-
-```python
-def text_for_nodes(nodes, node_map, page_texts):
-    """Collect extracted text from pages covered by the given nodes."""
-    texts, seen = [], set()
-    for nid in nodes:
-        info = node_map[nid]
-        for p in range(info["start_index"], info["end_index"] + 1):
-            if p not in seen and p in page_texts:
-                texts.append(f"--- Page {p} ---\n{page_texts[p]}")
-                seen.add(p)
-    return "\n\n".join(texts)
-```
-
 ### Build Context
 
-Call `text_for_nodes` to gather the relevant page text. This becomes the context the LLM will read to answer the question.
-
 ```python
-context = text_for_nodes(result["node_list"], node_map, page_texts)
+# Collect text from pages covered by retrieved nodes (deduplicating pages)
+texts, seen = [], set()
+for nid in result.get("node_list", []):
+    if nid not in node_map:
+        continue
+    info = node_map[nid]
+    # Loop through each page in the node's range
+    for p in range(info["start_index"], info["end_index"] + 1):
+        # Only add if we haven't seen this page and it has text
+        if p not in seen and p in page_texts:
+            texts.append(f"--- Page {p} ---\n{page_texts[p]}")
+            seen.add(p)
+# Join all extracted text into one context string
+context = "\n\n".join(texts)
 print(f"Using {len(context.splitlines())} lines of text.")
 ```
 
@@ -432,6 +409,8 @@ print(f"Using {len(context.splitlines())} lines of text.")
 Send the extracted text (context) along with the question to the LLM. The prompt instructs the LLM to answer only from the provided context and be concise.
 
 ```python
+# Send the extracted text + question to the LLM for the final answer.
+# The prompt tells the LLM to only use the provided context.
 answer_prompt = f"""
 Answer the question based on the provided text.
 

@@ -123,7 +123,7 @@ flowchart TD
 |-------|------------|
 | LLM | Llama 4 Scout via OpenRouter |
 | Document Parsing | PageIndex API |
-| PDF Text Extraction | PyMuPDF (`fitz`) |
+| PDF Text Extraction | PyMuPDF (`pymupdf`) |
 | LLM Client | OpenAI SDK (compatible with OpenRouter) |
 | Language | Python 3.12 |
 | Runtime | Jupyter Notebook |
@@ -177,13 +177,13 @@ Run this cell first — it only needs to be run once per session.
 
 ## Import Libraries
 
-Import the standard library and third-party modules used throughout the notebook. `os` and `json` handle file paths and caching. `re` parses JSON from LLM responses. `fitz` (PyMuPDF) extracts text from PDFs. `OpenAI` is the LLM client. `load_dotenv` loads API keys from the `.env` file.
+Import the standard library and third-party modules used throughout the notebook. `os` and `json` handle file paths and caching. `re` parses JSON from LLM responses. `pymupdf` extracts text from PDFs. `OpenAI` is the LLM client. `load_dotenv` loads API keys from the `.env` file.
 
 ```python
 import os
 import json
 import re
-import fitz
+import pymupdf
 from openai import OpenAI
 from dotenv import load_dotenv
 ```
@@ -215,14 +215,10 @@ Sends a prompt to the LLM via OpenRouter and returns the response text. Creates 
 
 ```python
 def call_llm(prompt, model="meta-llama/llama-4-scout-17b-16e-instruct"):
-    """Call a language model via OpenRouter."""
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
-    )
-    msgs = [{"role": "user", "content": prompt}]
-    resp = client.chat.completions.create(model=model, messages=msgs, temperature=0, max_tokens=1024)
-    return resp.choices[0].message.content.strip()
+    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+    return client.chat.completions.create(
+        model=model, messages=[{"role": "user", "content": prompt}], temperature=0, max_tokens=1024
+    ).choices[0].message.content.strip()
 ```
 
 ---
@@ -244,7 +240,7 @@ PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
 Opens the PDF with PyMuPDF and builds a dictionary mapping 1-based page numbers to their extracted text. The raw text preserves table structure (column headers, row labels) which is critical for accurate data extraction.
 
 ```python
-doc = fitz.open(PDF_PATH)
+doc = pymupdf.open(PDF_PATH)
 page_texts = {i+1: doc.load_page(i).get_text() for i in range(len(doc))}
 doc.close()
 print(f"Extracted text from {len(page_texts)} pages.")
