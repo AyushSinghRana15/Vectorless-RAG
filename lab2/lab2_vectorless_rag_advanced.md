@@ -57,9 +57,6 @@ graph TD
     B --> B1["Page 2: Updated home delivery guidance"]
     C --> C1["Page 6: Home Deliveries table"]
 
-    A1 -.->|"Cross-reference:\n'see Full Year Outlook'"| B1
-    B1 -.->|"Cross-reference:\n'see Financial Tables'"| C1
-
     A1 --> H1["Hop 1: Found\nChairman's statement"]
     B1 --> H2["Hop 2: Found\nupdated guidance"]
     H1 --> ANSWER["Combined Answer:\nEconomic uncertainty +\n10,400–11,000 homes"]
@@ -78,12 +75,11 @@ graph TD
     style ANSWER fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
-**How it works:**
+**How hopping works:**
 1. The LLM starts at the **root** and reads section titles/summaries
 2. **Hop 1:** Identifies Section A (Executive Commentary) contains the Chairman's statement
 3. **Hop 2:** Realizes the question also asks about "updated guidance" — hops to Section B (Full Year Outlook)
-4. **Cross-references** between sections guide the LLM (e.g., "see Full Year Outlook" in Section A)
-5. The LLM **aggregates** information from both hops into a single answer
+4. The LLM **aggregates** information from both hops into a single answer
 
 ## Structured Data Fidelity Flow
 
@@ -125,8 +121,7 @@ flowchart TD
 
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections.
 2. The **LLM** reasons over the tree, hopping between sections to find all relevant information.
-3. **Cross-references** between sections (e.g., "see Full Year Outlook") guide the LLM's traversal.
-4. The LLM **aggregates** information from multiple hops into a single answer.
+3. The LLM **aggregates** information from multiple hops into a single answer.
 
 # 5. Output
 
