@@ -312,7 +312,7 @@ Reusable functions for retrieving nodes and building context from the document t
 
 ### `parse_json(text)`
 
-Extracts and robustly parses JSON from the LLM's response text. Handles markdown code fences (```` ```json ... ``` ````) that LLMs often wrap around JSON output, locates the outermost curly braces, and parses the inner JSON. Includes a fallback that aggressively cleans hidden control characters if initial parsing fails.
+Extracts and robustly parses JSON from the LLM's response text. Handles markdown code fences (```` ```json ... ``` ````) that LLMs often wrap around JSON output, locates the outermost curly braces, and parses the inner JSON. Falls back to regex extraction of `thinking` and `node_list` fields if `json.loads` fails due to unescaped characters in the LLM output.
 
 ```python
 def parse_json(text):
@@ -332,10 +332,20 @@ def parse_json(text):
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        # Fallback: if there are hidden control characters or newlines breaking things, 
-        # clean them out aggressively before trying one last time.
-        cleaned_text = re.sub(r"[\n\r\t]", " ", text)
-        return json.loads(cleaned_text)
+        pass
+    
+    # Fallback: extract thinking and node_list with regex when JSON is malformed
+    thinking = ""
+    m_think = re.search(r'"thinking"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL)
+    if m_think:
+        thinking = m_think.group(1)
+    
+    node_list = []
+    m_nodes = re.search(r'"node_list"\s*:\s*\[(.*?)\]', text, re.DOTALL)
+    if m_nodes:
+        node_list = re.findall(r'"(\d+)"', m_nodes.group(1))
+    
+    return {"thinking": thinking, "node_list": node_list}
 ```
 
 ### `retrieve_nodes(query)`

@@ -35,7 +35,7 @@ This is especially useful for:
 | Item | Detail |
 |------|--------|
 | User query | Natural-language question about a PDF document |
-| PDF document | Medicare Plus health insurance policy (`data/synthetic_medicare_plus_policy_detailed.pdf`) |
+| PDF document | CCS Q1 2025 Earnings Release 8-K (`data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf`) |
 | PageIndex API Key | Used to parse the PDF into a hierarchical tree |
 | OpenRouter API Key | Used to call the Language Model (Llama 4 Scout) |
 
@@ -74,7 +74,7 @@ flowchart TD
 
 A natural-language answer grounded in the extracted text, e.g.:
 
-> _"The GST rate applied to the premium is 18%, as specified in Section 5.13 of the policy document."_
+> _"The total revenues for Q1 2025 were $XXX million, as reported in the earnings release."_
 
 # 6. Tech Stack
 
@@ -192,7 +192,7 @@ Extract text from each page of the PDF using PyMuPDF. This text will be used as 
 Set the path to the PDF document you want to query.
 
 ```python
-PDF_PATH = "data/synthetic_medicare_plus_policy_detailed.pdf"
+PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
 ```
 
 ### `extract_page_text(pdf_path)`
@@ -326,7 +326,7 @@ utils.print_tree(tree, exclude_fields=["text"])
 Define the question you want to ask about the document. The LLM will use the tree to find relevant sections, then read the extracted text from those pages to answer.
 
 ```python
-QUERY = "What is the GST rate applied to the premium?"
+QUERY = "What was the total revenue reported in the earnings release?"
 ```
 
 ---
@@ -458,7 +458,7 @@ Change `QUERY` above and re-run from **Step 4**.
 
 | Question | What to look for |
 |---|---|
-| "What is the GST rate?" | GST section |
-| "What is the Free-Look Period?" | Policy terms |
-| "How many Day Care Procedures are covered?" | Benefits section |
-| "What is the PED Waiting Period?" | Waiting periods |
+| "What was the total revenue?" | Revenue section |
+| "What is the net income?" | Income statement |
+| "How did diluted EPS change year-over-year?" | EPS metrics |
+| "What are the key financial highlights?" | Executive summary |
