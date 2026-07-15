@@ -297,7 +297,7 @@ except json.JSONDecodeError:
 
 ### Map Nodes to Page Numbers
 
-The LLM returns node IDs (e.g. `0000`, `0001`), but we need to know which **pages** those nodes correspond to. This cell maps each node ID to its page range and displays the LLM's reasoning.
+The LLM returns node IDs (e.g. `0000`, `0001`), but we need to know which **pages** those nodes correspond to. This step is required because the next cell extracts text from PDF pages — and it needs page numbers, not node IDs.
 
 ```python
 # Map node IDs to their metadata (title, page range, etc.)
