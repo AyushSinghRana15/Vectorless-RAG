@@ -54,11 +54,14 @@ flowchart TD
     F --> G["LLM aggregates\ninformation"]
     G --> H(["Final answer"])
 
-    style A fill:#e3f2fd,stroke:#1565c0
-    style H fill:#e8f5e9,stroke:#2e7d32
-    style C fill:#fff9c4,stroke:#f57f17
-    style B fill:#fff3e0,stroke:#e65100
-    style G fill:#fff3e0,stroke:#e65100
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style C fill:#fff9c4,stroke:#f57f17,color:#f57f17
+    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style E fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style F fill:#f5f5f5,stroke:#616161,color:#212121
+    style G fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style H fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 ## Structured Data Fidelity Flow
@@ -71,11 +74,12 @@ flowchart TD
     D --> E["LLM reads columns,\nrows, and values"]
     E --> F(["Accurate extraction"])
 
-    style A fill:#e3f2fd,stroke:#1565c0
-    style F fill:#e8f5e9,stroke:#2e7d32
-    style B fill:#fff3e0,stroke:#e65100
-    style E fill:#fff3e0,stroke:#e65100
-    style D fill:#f3e5f5,stroke:#6a1b9a
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style C fill:#f5f5f5,stroke:#616161,color:#212121
+    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 ## Combined Flow
@@ -89,12 +93,13 @@ flowchart TD
     E --> F["LLM aggregates\nand calculates"]
     F --> G(["Final answer with\naccurate numbers"])
 
-    style A fill:#e3f2fd,stroke:#1565c0
-    style G fill:#e8f5e9,stroke:#2e7d32
-    style B fill:#fff3e0,stroke:#e65100
-    style E fill:#fff3e0,stroke:#e65100
-    style F fill:#fff3e0,stroke:#e65100
-    style C fill:#f3e5f5,stroke:#6a1b9a
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style C fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style D fill:#f5f5f5,stroke:#616161,color:#212121
+    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style F fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections.
@@ -370,11 +375,12 @@ flowchart LR
     C --> E["Combine + calculate"]
     D --> E
     E --> F["Answer:\n₹14,160"]
-    style A fill:#e3f2fd,stroke:#1565c0
-    style F fill:#e8f5e9,stroke:#2e7d32
-    style B fill:#fff3e0,stroke:#e65100
-    style C fill:#f3e5f5,stroke:#6a1b9a
-    style D fill:#f3e5f5,stroke:#6a1b9a
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style C fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style E fill:#f5f5f5,stroke:#616161,color:#212121
+    style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 ### Define Multi-Hop Query
@@ -420,11 +426,12 @@ flowchart LR
     C --> D["Text preserves\ntable structure"]
     D --> E["LLM reads\ncolumns + rows"]
     E --> F["Answer:\nPrivate: ₹3,000\nICU: ₹6,000"]
-    style A fill:#e3f2fd,stroke:#1565c0
-    style F fill:#e8f5e9,stroke:#2e7d32
-    style B fill:#fff3e0,stroke:#e65100
-    style E fill:#fff3e0,stroke:#e65100
-    style D fill:#f3e5f5,stroke:#6a1b9a
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style C fill:#f5f5f5,stroke:#616161,color:#212121
+    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 ### Define Structured Data Query
@@ -472,13 +479,13 @@ flowchart TD
     D --> E
     E --> F["Aggregate +\ncalculate"]
     F --> G(["Accurate answer"])
-    style A fill:#e3f2fd,stroke:#1565c0
-    style G fill:#e8f5e9,stroke:#2e7d32
-    style B fill:#fff3e0,stroke:#e65100
-    style E fill:#fff3e0,stroke:#e65100
-    style F fill:#fff3e0,stroke:#e65100
-    style C fill:#f3e5f5,stroke:#6a1b9a
-    style D fill:#f3e5f5,stroke:#6a1b9a
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style C fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style F fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 ### Define Combined Query

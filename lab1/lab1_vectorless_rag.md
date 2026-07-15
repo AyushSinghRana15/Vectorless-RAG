@@ -53,10 +53,16 @@ flowchart TD
     H --> I["LLM reads extracted text\nand generates answer"]
     I --> J(["Final answer"])
 
-    style A fill:#e3f2fd,stroke:#1565c0
-    style J fill:#e8f5e9,stroke:#2e7d32
-    style E fill:#fff3e0,stroke:#e65100
-    style I fill:#fff3e0,stroke:#e65100
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#f5f5f5,stroke:#616161,color:#212121
+    style C fill:#f5f5f5,stroke:#616161,color:#212121
+    style D fill:#f5f5f5,stroke:#616161,color:#212121
+    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style F fill:#f5f5f5,stroke:#616161,color:#212121
+    style G fill:#f5f5f5,stroke:#616161,color:#212121
+    style H fill:#f5f5f5,stroke:#616161,color:#212121
+    style I fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style J fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections, each annotated with a title and summary.
