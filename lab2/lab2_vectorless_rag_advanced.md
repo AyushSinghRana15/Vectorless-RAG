@@ -2,14 +2,15 @@
 
 ## Vectorless RAG — Advanced Scenarios
 
-# What is Vectorless RAG?
+# Key Scenarios
 
-**Vectorless RAG** replaces embeddings, vector stores, and text chunking with a single idea: let a Language Model (LLM) *reason over a document tree* and then *read the extracted text* from relevant pages.
+## Multi-Hop Reasoning
 
-This lab focuses on two advanced scenarios where Vectorless RAG excels:
+**Multi-hop reasoning** is the ability to answer questions that cannot be resolved from a single location in a document. Real-world queries often require synthesizing facts scattered across different sections — for example, combining an executive's qualitative commentary from one part of a report with a numeric guidance update from another. Traditional RAG systems retrieve text chunks independently by semantic similarity, which means they may find one piece of the answer but miss the other entirely. Multi-hop reasoning addresses this by traversing the document tree step-by-step, identifying each section that contributes a piece of the answer, and then aggregating those pieces into a single coherent response.
 
-1. **Multi-Hop Attribute Aggregation** — Questions that require combining information from multiple sections of a document.
-2. **Structured Data Fidelity** — Extracting accurate values from tables, forms, and structured data.
+## Table and Chart Extraction
+
+**Table and chart extraction** is the ability to pull precise values from structured layouts embedded in documents — tables, financial schedules, forms, and similar formats. These layouts are defined by their spatial arrangement (rows, columns, headers), not just their text content. Traditional text extraction often flattens this structure, producing garbled or ambiguous output where column associations are lost. Table and chart extraction preserves the underlying text flow so that the spatial relationships remain intact, allowing an LLM to read column headers, trace row labels, and retrieve exact numbers with high fidelity.
 
 # 2. Problem Statement / Use Case Overview
 
@@ -97,38 +98,7 @@ flowchart TD
 ### Structured Data Example
 > _"In the first quarter of 2025, the 'Texas' region delivered 457 homes with an average sales price of $298.9 thousand."_
 
-# 6. Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| LLM | Llama 4 Scout via OpenRouter |
-| Document Parsing | PageIndex API |
-| PDF Text Extraction | PyMuPDF (`fitz`) |
-| LLM Client | OpenAI SDK (compatible with OpenRouter) |
-| Language | Python 3.12 |
-| Runtime | Jupyter Notebook |
-
-# 7. Underlying Concepts
-
-## Multi-Hop Attribute Aggregation
-- **Definition:** Combining information from multiple document sections to answer a single question.
-- **Challenge:** Traditional RAG retrieves chunks by similarity — it may miss related sections.
-- **Solution:** Tree-based reasoning allows the LLM to identify that the answer requires multiple sources.
-
-## Structured Data Fidelity
-- **Definition:** Extracting accurate values from tables, forms, and structured data.
-- **Challenge:** PDF table extraction often loses formatting; wrong values can be costly.
-- **Solution:** Raw text preserves table structure (column headers, row labels), allowing accurate extraction.
-
-## Why Vectorless RAG Excels Here
-- **No chunking** — the LLM reads complete sections, not arbitrary chunks.
-- **Reasoning over similarity** — the LLM understands that a question requires multiple sources.
-- **Text preservation** — raw text maintains table structure better than extracted data.
-- **Traversal visualization** — the reasoning path through the document tree can be visualized.
-
-> Refer to the original implementation: [Clement-Okolo/Vectorless-Rag](https://github.com/Clement-Okolo/Vectorless-Rag)
-
-# 8. Pre-requisites
+# 6. Pre-requisites
 
 - Basic familiarity with Python (functions, `import` statements).
 - Completion of Lab 1 (Vectorless RAG basics).
@@ -136,7 +106,7 @@ flowchart TD
 - **OpenRouter API Key** — sign up at [openrouter.ai](https://openrouter.ai).
 - Understanding of what multi-hop reasoning means in the context of RAG.
 
-# 9. Environment / Dependencies Setup
+# 7. Environment / Dependencies Setup
 
 ## Install Dependencies
 
