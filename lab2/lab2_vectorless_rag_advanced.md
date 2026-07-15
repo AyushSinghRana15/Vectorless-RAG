@@ -82,26 +82,6 @@ flowchart TD
     style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
-## Combined Flow
-
-```mermaid
-flowchart TD
-    A(["Complex query:\nmulti-hop + structured"]) --> B["LLM identifies\nmultiple sections"]
-    B --> C["Retrieve nodes from\nmultiple tables + sections"]
-    C --> D["Combine context"]
-    D --> E["LLM extracts values\nfrom tables"]
-    E --> F["LLM aggregates\nand synthesizes"]
-    F --> G(["Final answer with\naccurate numbers"])
-
-    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style D fill:#f5f5f5,stroke:#616161,color:#212121
-    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style F fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-```
-
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections.
 2. The **LLM** reasons over the tree to identify which sections are needed, documenting its hop-by-hop traversal path.
 3. For multi-hop queries, the LLM retrieves **multiple nodes** from different sections.
@@ -598,4 +578,3 @@ Change the `QUERY_*` variables and re-run the cells. Here are some generic patte
 |----------|------------------|
 | Multi-Hop | "What was the net income and how does it compare to the prior year period?" |
 | Structured Data | "What is the number of net new home contracts for the West region?" |
-| Multi-Hop + Table | "What were the total homebuilding gross margins and how do they break down by region?" |
