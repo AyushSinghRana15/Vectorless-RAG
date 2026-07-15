@@ -76,30 +76,21 @@ graph TD
     R["Root: Document Title"] --> A["Section 1: Introduction"]
     R --> B["Section 2: Financial Results"]
     R --> C["Section 3: Balance Sheet"]
-    R --> D["Section 4: Cash Flow"]
 
-    B --> B1["Page 3: Revenue Summary"]
-    B --> B2["Page 4: Net Income"]
-    B --> B3["Page 5: EPS Breakdown"]
+    B --> B1["Page 2: Revenue"]
+    B --> B2["Page 3: Net Income"]
 
-    C --> C1["Page 6: Assets & Liabilities"]
-    C --> C2["Page 7: Equity"]
-
-    D --> D1["Page 8: Operating Cash Flow"]
-    D --> D2["Page 9: Investing & Financing"]
+    C --> C1["Page 4: Assets"]
+    C --> C2["Page 5: Equity"]
 
     style R fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
     style A fill:#f5f5f5,stroke:#616161,color:#212121
     style B fill:#fff3e0,stroke:#e65100,color:#bf360c
     style C fill:#f5f5f5,stroke:#616161,color:#212121
-    style D fill:#f5f5f5,stroke:#616161,color:#212121
     style B1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
     style B2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style B3 fill:#fce4ec,stroke:#c62828,color:#b71c1c
     style C1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
     style C2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style D1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style D2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
 ```
 
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections, each annotated with a title and summary.
