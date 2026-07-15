@@ -147,6 +147,8 @@ flowchart TD
 
 # 9. Environment / Dependencies Setup
 
+## Install Dependencies
+
 The cell below installs all required Python packages:
 
 | Package | Purpose |
@@ -162,27 +164,43 @@ Run this cell first — it only needs to be run once per session.
 !pip install -q pageindex openai python-dotenv pymupdf
 ```
 
-### Load API Keys
+## Import Libraries
 
-Your API keys are stored in the `.env` file in the project root. The cell below loads them.
+Import the standard library and third-party modules used throughout the notebook. `os` and `json` handle file paths and caching. `re` parses JSON from LLM responses. `fitz` (PyMuPDF) extracts text from PDFs. `OpenAI` is the LLM client. `load_dotenv` loads API keys from the `.env` file.
 
 ```python
 import os
 import json
 import re
-import fitz  # PyMuPDF
+import fitz
 from openai import OpenAI
 from dotenv import load_dotenv
+```
 
+## Load API Keys
+
+Load API keys from the `.env` file in the project root (`../.env` relative to this notebook). If either key is missing from `.env`, you'll be prompted to enter it manually.
+
+```python
 load_dotenv("../.env")
 
 PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
+# If keys are missing, prompt the user to enter them
+if not PAGEINDEX_API_KEY:
+    PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
+if not OPENROUTER_API_KEY:
+    OPENROUTER_API_KEY = input("Enter your OpenRouter API key (get one at https://openrouter.ai): ").strip()
+
 print("Keys loaded.")
 ```
 
-### Set up the LLM
+## Set Up the LLM
+
+### `call_llm(prompt, model)`
+
+Sends a prompt to the LLM via OpenRouter and returns the response text. Creates a fresh OpenAI client pointed at OpenRouter's API endpoint. Uses `meta-llama/llama-4-scout-17b-16e-instruct` by default with `temperature=0` for deterministic output.
 
 ```python
 def call_llm(prompt, model="meta-llama/llama-4-scout-17b-16e-instruct"):
@@ -198,48 +216,132 @@ def call_llm(prompt, model="meta-llama/llama-4-scout-17b-16e-instruct"):
 
 ---
 
-## Helper Functions
+## Load and Parse the PDF
 
-These functions handle text extraction, node retrieval, and context building.
+Extract text from each page of the PDF using PyMuPDF. This text will be used as context for the LLM when answering questions.
+
+### Define PDF Path
+
+Point this to any PDF you want to query.
 
 ```python
-def extract_page_text(pdf_path):
-    """Extract text from each PDF page."""
-    doc = fitz.open(pdf_path)
-    texts = {}
-    for i in range(len(doc)):
-        texts[i+1] = doc.load_page(i).get_text()
-    doc.close()
-    return texts
+PDF_PATH = "data/your_document.pdf"
 ```
 
+### Extract Text from PDF
+
+Opens the PDF with PyMuPDF and builds a dictionary mapping 1-based page numbers to their extracted text. The raw text preserves table structure (column headers, row labels) which is critical for accurate data extraction.
+
 ```python
-def retrieve_nodes(query, tree):
+doc = fitz.open(PDF_PATH)
+page_texts = {i+1: doc.load_page(i).get_text() for i in range(len(doc))}
+doc.close()
+print(f"Extracted text from {len(page_texts)} pages.")
+```
+
+---
+
+## Build Document Tree (with caching)
+
+The PageIndex API parses the PDF into a hierarchical tree of sections and subsections. The tree is cached as JSON so repeat runs with the same PDF skip the API call.
+
+### Set Up Caching and PageIndex
+
+Import the PageIndex client and define the cache path. The cache file is named after the PDF filename with `_tree.json` appended.
+
+```python
+from pageindex import PageIndexClient
+from pageindex import utils
+import time
+
+CACHE_PATH = f"cache/{os.path.basename(PDF_PATH).replace('.pdf', '_tree.json')}"
+os.makedirs("cache", exist_ok=True)
+```
+
+### Load or Build the Tree
+
+Try loading from cache first. If it's a cache miss, submit the PDF to PageIndex, poll until processing completes (up to 5 minutes), save the result to cache, and display the tree structure.
+
+```python
+tree = None
+if os.path.exists(CACHE_PATH):
+    with open(CACHE_PATH) as f:
+        tree = json.load(f)
+    print("Loaded tree from cache.")
+
+if tree is None:
+    pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
+    result = pi.submit_document(PDF_PATH)
+    doc_id = result["doc_id"]
+    print(f"Submitted: {doc_id}")
+
+    elapsed = 0
+    while elapsed < 300:
+        if pi.is_retrieval_ready(doc_id):
+            break
+        time.sleep(5)
+        elapsed += 5
+        print(f"  {elapsed}s...")
+    else:
+        raise TimeoutError("PageIndex timeout")
+
+    tree = pi.get_tree(doc_id, node_summary=True)["result"]
+    with open(CACHE_PATH, "w") as f:
+        json.dump(tree, f, indent=2)
+    print("Tree cached.")
+
+utils.print_tree(tree, exclude_fields=["text"])
+```
+
+---
+
+## Helper Functions
+
+Reusable functions for retrieving nodes and building context from the document tree.
+
+### `parse_json(text)`
+
+Extracts a JSON object from the LLM's response text. Handles markdown code fences (```` ```json ... ``` ````) that LLMs often wrap around JSON output, then parses the inner JSON.
+
+```python
+def parse_json(text):
+    """Extract JSON from LLM response."""
+    text = re.sub(r"```json\s*|\s*```", "", text.strip())
+    s, e = text.find("{"), text.rfind("}")
+    if s != -1 and e != -1:
+        text = text[s:e+1]
+    return json.loads(text)
+```
+
+### `retrieve_nodes(query)`
+
+Uses the LLM to find relevant nodes for a given query. Strips full text from the tree (keeping only titles + summaries), sends it to the LLM with the question, and returns the parsed JSON result containing the LLM's reasoning and a list of relevant node IDs. This is the core retrieval function that enables tree-based reasoning.
+
+```python
+def retrieve_nodes(query):
     """Use LLM to find relevant nodes for a query."""
     tree_slim = utils.remove_fields(tree.copy(), fields=["text"])
-    search_prompt = f"""
-You are given a question and a document tree.
-Each node has: node_id, title, summary.
-Find all nodes likely to contain the answer.
+    prompt = f"""
+Given a question and a document tree (node_id, title, summary),
+find nodes likely to contain the answer.
 
 Question: {query}
 
-Document tree:
+Tree:
 {json.dumps(tree_slim, indent=2)}
 
-Reply in this JSON format ONLY:
-{{
-    "thinking": "<your reasoning>",
-    "node_list": ["node_id_1", "node_id_2"]
-}}
+JSON only:
+{{"thinking": "...", "node_list": ["id1", "id2"]}}
 """
-    raw = call_llm(search_prompt)
-    result = parse_json(raw)
-    return result["thinking"], result["node_list"]
+    return parse_json(call_llm(prompt))
 ```
 
+### `get_context(node_list)`
+
+Extracts text from pages covered by the given node list. Maps each node ID to its page range, collects the extracted text from those pages (deduplicating), and joins them with page separators. Returns a single string of all relevant page text.
+
 ```python
-def get_context(node_list, tree, page_texts):
+def get_context(node_list):
     """Extract text from pages covered by the given nodes."""
     node_map = utils.create_node_mapping(tree, include_page_ranges=True, max_page=len(page_texts))
     texts, seen = [], set()
@@ -269,21 +371,31 @@ flowchart LR
     style B fill:#fff3e0
 ```
 
-### Example Query
+### Define Multi-Hop Query
+
+Set a question that requires information from multiple document sections to answer.
 
 ```python
 QUERY_MULTI_HOP = "What is the total annual premium including 18% GST for a sum insured of 5 lakhs?"
 ```
 
-### Retrieve and Answer
+### Retrieve Nodes for Multi-Hop Query
+
+Send the query to the LLM to identify which nodes are relevant. For multi-hop questions, the LLM should return nodes from multiple sections.
 
 ```python
-thinking, nodes = retrieve_nodes(QUERY_MULTI_HOP, tree)
-print("Reasoning:", thinking)
-print("Nodes:", nodes)
+result = retrieve_nodes(QUERY_MULTI_HOP)
+print("Reasoning:", result["thinking"], "\n")
+print("Retrieved nodes:", result["node_list"])
+```
 
-context = get_context(nodes, tree, page_texts)
-answer = answer_query(QUERY_MULTI_HOP, context)
+### Answer Multi-Hop Query
+
+Build context from the retrieved nodes and send it to the LLM with the question to get the final answer.
+
+```python
+context = get_context(result["node_list"])
+answer = call_llm(f"Context:\n{context}\n\nQuestion: {QUERY_MULTI_HOP}\n\nAnswer concisely.")
 print("Answer:", answer)
 ```
 
@@ -308,21 +420,31 @@ flowchart LR
     style E fill:#fff3e0
 ```
 
-### Example Query
+### Define Structured Data Query
+
+Set a question about extracting specific values from a table in the document.
 
 ```python
 QUERY_STRUCTURED = "What are the room rent limits for Private Hospital and ICU according to the table?"
 ```
 
-### Retrieve and Answer
+### Retrieve Nodes for Structured Data
+
+Find the nodes containing the relevant table or structured data.
 
 ```python
-thinking, nodes = retrieve_nodes(QUERY_STRUCTURED, tree)
-print("Reasoning:", thinking)
-print("Nodes:", nodes)
+result = retrieve_nodes(QUERY_STRUCTURED)
+print("Reasoning:", result["thinking"], "\n")
+print("Retrieved nodes:", result["node_list"])
+```
 
-context = get_context(nodes, tree, page_texts)
-answer = answer_query(QUERY_STRUCTURED, context)
+### Answer Structured Data Query
+
+Extract the page text from the retrieved nodes and have the LLM read the raw table data to produce an accurate answer.
+
+```python
+context = get_context(result["node_list"])
+answer = call_llm(f"Context:\n{context}\n\nQuestion: {QUERY_STRUCTURED}\n\nAnswer concisely.")
 print("Answer:", answer)
 ```
 
@@ -349,21 +471,31 @@ flowchart TD
     style F fill:#fff3e0
 ```
 
-### Example Query
+### Define Combined Query
+
+Set a question that needs both multi-hop reasoning across sections and accurate table extraction.
 
 ```python
 QUERY_COMBINED = "Based on the premium table, what is the total premium for a 25-year-old with 5 lakh sum insured including all taxes?"
 ```
 
-### Retrieve and Answer
+### Retrieve Nodes for Combined Query
+
+Find nodes from multiple sections that contain both the table data and the related calculations.
 
 ```python
-thinking, nodes = retrieve_nodes(QUERY_COMBINED, tree)
-print("Reasoning:", thinking)
-print("Nodes:", nodes)
+result = retrieve_nodes(QUERY_COMBINED)
+print("Reasoning:", result["thinking"], "\n")
+print("Retrieved nodes:", result["node_list"])
+```
 
-context = get_context(nodes, tree, page_texts)
-answer = answer_query(QUERY_COMBINED, context)
+### Answer Combined Query
+
+Build context from all relevant nodes and have the LLM aggregate information from tables while performing multi-hop reasoning.
+
+```python
+context = get_context(result["node_list"])
+answer = call_llm(f"Context:\n{context}\n\nQuestion: {QUERY_COMBINED}\n\nAnswer concisely.")
 print("Answer:", answer)
 ```
 
