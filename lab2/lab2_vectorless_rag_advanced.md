@@ -41,28 +41,49 @@ Traditional RAG retrieves chunks by similarity — it might find Section A OR Se
 
 # 4. Processing
 
-## Multi-Hop Aggregation Flow
+## Multi-Hop Attribute Aggregation
+
+Multi-hop questions require information from **multiple sections** of a document. The LLM traverses the tree, hopping between sections to gather all necessary pieces.
 
 ```mermaid
-flowchart TD
-    A(["User asks a multi-hop question"]) --> B["LLM reasons over tree"]
-    B --> C{"Requires multiple\nsections?"}
-    C -->|Yes| D["Retrieve nodes from\nmultiple sections"]
-    C -->|No| E["Retrieve single section"]
-    D --> F["Combine context\nfrom all nodes"]
-    E --> F
-    F --> G["LLM aggregates\ninformation"]
-    G --> H(["Final answer"])
+graph TD
+    Q["User Query:\nChairman's statement +\nupdated guidance"] --> R["Root: Q1 2025 Earnings"]
 
-    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    R --> A["Section A:\nExecutive Commentary"]
+    R --> B["Section B:\nFull Year Outlook"]
+    R --> C["Section C:\nFinancial Tables"]
+
+    A --> A1["Page 1: Dale Francescon's statement"]
+    B --> B1["Page 2: Updated home delivery guidance"]
+    C --> C1["Page 6: Home Deliveries table"]
+
+    A1 -.->|"Cross-reference:\n'see Full Year Outlook'"| B1
+    B1 -.->|"Cross-reference:\n'see Financial Tables'"| C1
+
+    A1 --> H1["Hop 1: Found\nChairman's statement"]
+    B1 --> H2["Hop 2: Found\nupdated guidance"]
+    H1 --> ANSWER["Combined Answer:\nEconomic uncertainty +\n10,400–11,000 homes"]
+    H2 --> ANSWER
+
+    style Q fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style R fill:#f5f5f5,stroke:#616161,color:#212121
+    style A fill:#fff3e0,stroke:#e65100,color:#bf360c
     style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#fff9c4,stroke:#f57f17,color:#f57f17
-    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style E fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style F fill:#f5f5f5,stroke:#616161,color:#212121
-    style G fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style H fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style C fill:#f5f5f5,stroke:#616161,color:#212121
+    style A1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style B1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style C1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style H1 fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style H2 fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
+    style ANSWER fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
+
+**How it works:**
+1. The LLM starts at the **root** and reads section titles/summaries
+2. **Hop 1:** Identifies Section A (Executive Commentary) contains the Chairman's statement
+3. **Hop 2:** Realizes the question also asks about "updated guidance" — hops to Section B (Full Year Outlook)
+4. **Cross-references** between sections guide the LLM (e.g., "see Full Year Outlook" in Section A)
+5. The LLM **aggregates** information from both hops into a single answer
 
 ## Structured Data Fidelity Flow
 
@@ -103,11 +124,9 @@ flowchart TD
 ```
 
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections.
-2. The **LLM** reasons over the tree to identify which sections are needed, documenting its hop-by-hop traversal path.
-3. For multi-hop queries, the LLM retrieves **multiple nodes** from different sections.
-4. For structured data, the LLM reads the raw text and **extracts values accurately**.
-5. The LLM **aggregates information** and provides a final answer.
-6. A **traversal visualization** shows the reasoning path through the document tree.
+2. The **LLM** reasons over the tree, hopping between sections to find all relevant information.
+3. **Cross-references** between sections (e.g., "see Full Year Outlook") guide the LLM's traversal.
+4. The LLM **aggregates** information from multiple hops into a single answer.
 
 # 5. Output
 
