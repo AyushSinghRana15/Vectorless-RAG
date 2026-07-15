@@ -106,7 +106,7 @@ graph TD
 
 ```mermaid
 flowchart LR
-    subgraph传统Vector RAG
+    subgraph TraditionalVectorRAG["Traditional Vector RAG"]
         direction TB
         V1["Chunk text into fixed-size pieces"] --> V2["Generate embeddings for each chunk"]
         V2 --> V3["Store in vector database"]
@@ -116,7 +116,7 @@ flowchart LR
         V7 --> V8["LLM generates answer"]
     end
 
-    subgraph Vectorless RAG
+    subgraph VectorlessRAG["Vectorless RAG"]
         direction TB
         N1["Parse PDF into document tree"] --> N2["LLM reads tree + question"]
         N2 --> N3["LLM reasons about relevance"]
