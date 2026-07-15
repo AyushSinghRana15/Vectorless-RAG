@@ -374,6 +374,7 @@ def parse_json(text):
     s, e = text.find("{"), text.rfind("}")
     if s != -1 and e != -1:
         text = text[s:e+1]
+    text = re.sub(r'[\x00-\x1f\x7f]', ' ', text)
     return json.loads(text)
 ```
 
