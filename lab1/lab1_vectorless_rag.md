@@ -113,7 +113,7 @@ A natural-language answer grounded in the extracted text, e.g.:
 
 > _"The total revenues for Q1 2025 were $XXX million, as reported in the earnings release."_
 
-# 8. Pre-requisites
+# 6. Pre-requisites
 
 - Basic familiarity with Python (functions, `import` statements).
 - **PageIndex API Key** — sign up at [pageindex.ai](https://pageindex.ai).
@@ -121,7 +121,7 @@ A natural-language answer grounded in the extracted text, e.g.:
 - High-level understanding of what an LLM is and what a "context window" means.
 - (Optional) Awareness of traditional RAG pipelines (embeddings, vector stores).
 
-# 9. Environment / Dependencies Setup
+# 7. Environment / Dependencies Setup
 
 ## Install Dependencies
 
@@ -302,7 +302,13 @@ except json.JSONDecodeError:
     else:
         print("Could not parse LLM response. Using empty result.")
         result = {"thinking": "", "node_list": []}
+```
 
+### Map Nodes to Page Numbers
+
+The LLM returns node IDs (e.g. `0000`, `0001`), but we need to know which **pages** those nodes correspond to. This cell maps each node ID to its page range and displays the LLM's reasoning.
+
+```python
 # Map node IDs to their metadata (title, page range, etc.)
 node_map = utils.create_node_mapping(tree, include_page_ranges=True, max_page=len(page_texts))
 
