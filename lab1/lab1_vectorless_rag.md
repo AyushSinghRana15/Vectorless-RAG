@@ -199,6 +199,8 @@ from pageindex import PageIndexClient
 from pageindex import utils
 import time
 
+PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
+
 # Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
 result = pi.submit_document(PDF_PATH)
@@ -331,8 +333,6 @@ flowchart LR
 Extract text from each page of the PDF using PyMuPDF.
 
 ```python
-PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
-
 doc = pymupdf.open(PDF_PATH)
 # len(doc) = total pages; i goes from 0 to len(doc)-1
 # i+1 makes page numbers 1-based (page 1, 2, 3...)
