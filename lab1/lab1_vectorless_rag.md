@@ -268,13 +268,20 @@ The LLM reads the tree (titles + summaries only — no full text) and picks whic
 
 ```mermaid
 flowchart LR
-    A[User Question] --> B[Full Tree]
-    B --> C["Strip 'text' field<br/>utils.remove_fields()"]
-    C --> D["Slim Tree<br/>(node_id + title + summary only)"]
-    D --> E[LLM Analysis]
-    A --> E
-    E --> F["JSON Response<br/>{node_list: [...]}"]
-    F --> G["Relevant Nodes<br/>identified by node_id"]
+    A["User Question"] --> D
+    B["Full Tree\n(node_id, title, summary, text)"] --> C["Strip 'text' field\nutils.remove_fields()"]
+    C --> D["Slim Tree\n(node_id + title + summary only)"]
+    D --> E["LLM reads slim tree\n+ question → picks relevant nodes"]
+    E --> F["JSON Response\n{node_list: [...]}"]
+    F --> G["Relevant Nodes\nidentified by node_id"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#f5f5f5,stroke:#616161,color:#212121
+    style C fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style D fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style F fill:#f5f5f5,stroke:#616161,color:#212121
+    style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 ### Search the Tree
