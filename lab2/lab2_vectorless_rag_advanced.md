@@ -50,20 +50,25 @@ flowchart TD
 
 #### Install Dependencies
 ```python
-!pip install pageindex langchain-groq requests dotenv
+# Install PageIndex for vectorless hierarchical retrieval, LangChain Groq for the LLM, and requests for downloading the file.
+!pip install pageindex langchain-groq requests dotenv 
 ```
 This installs the tree-based retrieval library, the LLM wrapper, and `requests` for handling files.
 
 #### Import Libraries
 ```python
+# Import core modules
 import os
 import time
 import requests
+import re
 
+# Import PageIndex for vectorless retrieval
 from pageindex import PageIndexClient
 import pageindex.utils as utils
 from dotenv import load_dotenv
 
+# Import LangChain's Groq wrapper
 from langchain_groq import ChatGroq
 ```
 Brings in the retrieval client, a helper to load environment variables (like API keys), and the LLM wrapper we'll use later.
@@ -71,7 +76,10 @@ Brings in the retrieval client, a helper to load environment variables (like API
 #### Setup API Keys
 ```python
 load_dotenv("../.env")
+
 PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY")
+
+# Initialize the PageIndex Client
 pi_client = PageIndexClient(api_key=PAGEINDEX_API_KEY)
 ```
 Loads the API key from an `.env` file and creates the client we'll use to build and search the document tree.
@@ -82,24 +90,37 @@ Loads the API key from an `.env` file and creates the client we'll use to build 
 
 #### Define PDF Path
 ```python
+import os
+
+# Point to the local PDF document you already have
 PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
 
+# Let's add a quick beginner-friendly check to make sure the file exists where we expect it
 if os.path.exists(PDF_PATH):
     print(f"Success: Found the document at '{PDF_PATH}'")
 else:
-    print(f"Error: Could not find the document...")
+    print(f"Error: Could not find the document. Please make sure the 'data' folder is in the same directory as this notebook.")
 ```
 A simple check to make sure the PDF is actually where the notebook expects it, before we try to do anything with it.
 
 #### Submit and Index Document (Tree Construction)
 ```python
+# Submit your local document to PageIndex. 
+# It reads your financial document and organizes it into a logical tree (Sections, Tables, Text).
 doc_info = pi_client.submit_document(PDF_PATH)
 doc_id = doc_info["doc_id"]
 
+print(f"Document Submitted. Tracking ID: {doc_id}")
+
+# Polling loop: Wait for the document tree to finish building
+print("Waiting for the document to be indexed...")
 while not pi_client.is_retrieval_ready(doc_id):
+    print("Still processing... checking again in 5 seconds.")
     time.sleep(5)
+
+print("Indexing Complete! The hierarchical tree is ready for multi-hop retrieval.")
 ```
-This is the step where the PDF is turned into a tree. The document is submitted, and the notebook waits (polling every 5 seconds) until the tree is fully built and ready to be searched.
+This is the step where the PDF is turned into a tree. The document is submitted, and the notebook waits (polling every 5 seconds, printing a status update each time) until the tree is fully built and ready to be searched.
 
 #### Print the Document Tree
 ```python
@@ -111,6 +132,7 @@ Once the tree is ready, this pretty-prints the actual hierarchical structure Pag
 
 #### Initialize the LLM
 ```python
+# Initialize the LLM
 llm = ChatGroq(
     model="...", 
     temperature=0.0,
@@ -121,7 +143,7 @@ Sets up the LLM that will later read the retrieved context and generate the fina
 
 ---
 
-### Define Retrieval Function (Multi-Hop, Tagged for Explainability)
+### Define Retrieval Function (Multi-Hop, With Explainability Tracking)
 
 This is the core of the multi-hop logic — the function sends the question to the tree, waits for the search to finish, then walks through the top matching sections **one at a time**. For each one, it records not just the text, but exactly *where* that text came from: the section title, the node's unique ID, and the page number(s). This metadata is what makes the retrieval explainable later.
 
@@ -134,7 +156,16 @@ flowchart LR
 ```
 
 ```python
-def retrieve_from_pageindex(query, doc_id, top_k=3):
+def retrieve_from_pageindex(query, doc_id, top_k=5):
+    """
+    Searches the document tree for the given query.
+    Every piece of context returned here is tagged with:
+      - which hop it was (1st match, 2nd match, ...)
+      - the section title
+      - the node id (the tree's unique ID for that section)
+      - the page number(s) the text came from
+    This metadata is what lets us later explain WHY a node was chosen.
+    """
     response = pi_client.submit_query(doc_id=doc_id, query=query)
     retrieval_id = response.get("retrieval_id")
 
@@ -155,7 +186,7 @@ def retrieve_from_pageindex(query, doc_id, top_k=3):
 
     for index, node in enumerate(nodes[:top_k]):
         node_name = node.get("title") or f"Section {index + 1}"
-        node_id = node.get("id", "unknown")  # PageIndex returns the node's ID under "id"
+        node_id = node.get("id", "unknown")   
         relevant_contents = node.get("relevant_contents", [])
 
         section_text = []
@@ -192,7 +223,7 @@ def retrieve_from_pageindex(query, doc_id, top_k=3):
 4. For each hop, it pulls out the readable text, the node's ID, and its page number(s) (using a small regex, since PageIndex embeds the page inside a string like `"<physical_index_6>"` rather than as a plain number).
 5. It returns a structured list of hops — each one knowing exactly which section, node, and page it came from.
 
-#### Combine Context and Ask the LLM (Direct, Interpreted Answer)
+#### Combine Context and Ask the LLM
 ```python
 def vectorless_rag(query, doc_id):
     hops = retrieve_from_pageindex(query, doc_id)
@@ -209,9 +240,6 @@ to someone in a meeting — not a mechanical calculation. Consider seasonality a
 relevant signals in the context (like backlog or order trends) rather than just scaling
 one quarter's number by 4.
 
-Explicitly state whether the pace is running ahead of, in line with, or behind what
-would be needed to hit the full-year target, accounting for typical seasonal patterns.
-
 Context:
 {labeled_context}
 
@@ -223,9 +251,7 @@ Question: {query}
 
     return final_answer, hops, labeled_context
 ```
-This ties it together — it calls the hop-by-hop retrieval function, concatenates the retrieved text (without hop tags), and asks the LLM for a plain-language, interpreted answer rather than a mechanical calculation. The prompt explicitly steers it away from naive annualization (e.g. multiplying Q1 deliveries by 4) and toward weighing seasonality, backlog, and order trends — then forces a direct verdict on whether the pace is ahead of, in line with, or behind what's needed to hit guidance.
-
-> **Note:** Because the hop tags (`[Hop 1]`, `[Hop 2]`, ...) are no longer in the answer text, the citation-matching step later in the notebook (which scans the final answer for `[Hop N]` patterns) won't find any — every hop will show as "retrieved but NOT used" in the explainability report below, even if it was actually used. This tradeoff is intentional here: it prioritizes a cleaner, more natural-sounding answer over automatic citation tracking.
+This ties it together — it calls the hop-by-hop retrieval function, combines the retrieved text into one block of context, and asks the LLM for a plain-language, interpreted answer rather than a mechanical calculation. The prompt steers it away from naive annualization (e.g. multiplying a quarterly number by 4) and toward weighing seasonality, backlog, and order trends where relevant.
 
 ---
 
@@ -233,41 +259,46 @@ This ties it together — it calls the hop-by-hop retrieval function, concatenat
 
 #### Define the Question
 ```python
-query = "Does the pace of home deliveries in Q1 2025 support the company's full-year 2025 guidance?"
+# The question we want to ask
+query = "How much did GAAP net income grow or shrink from Q1 2024 to Q1 2025? Separately, what was adjusted net income (not adjusted EBITDA) for both periods, and does it tell a different story?"
 ```
-This is a good test question for multi-hop retrieval because the answer likely needs numbers from more than one section (Q1 pace + full-year guidance).
+This is a good test question for multi-hop retrieval because the answer needs two different numbers from two different sections — GAAP net income (Consolidated Statements of Operations) and adjusted net income (the Non-GAAP Reconciliation table).
 
 #### Run the Pipeline and Print the Trace + Answer
 ```python
+print(f"Question: {query}\n")
+print("Navigating document tree and generating answer...\n")
+
+# Run the pipeline
 final_answer, hops, labeled_context = vectorless_rag(query, doc_id)
 
+# --- SECTIONS SEARCHED (RETRIEVAL TRACE) ---
 print("--- SECTIONS SEARCHED (RETRIEVAL TRACE) ---")
 for hop in hops:
     print(f"Hop {hop['hop_number']}: {hop['section']}")
 
+# --- FINAL ANSWER ---
 print("\n--- FINAL ANSWER ---")
 print(final_answer)
-
-# Find every "[Hop N]" tag that actually appears in the final answer,
-# so we know which retrieved hops the LLM actually relied on.
-cited_hop_numbers = set(int(n) for n in re.findall(r"\[Hop (\d+)\]", final_answer))
 ```
-Runs the whole pipeline, prints which sections were searched, prints the final answer, and then checks the answer text itself for `[Hop N]` citations — a lightweight way to know which retrieved hops actually made it into the answer, with no extra LLM call needed.
+Runs the whole pipeline, then prints the question, which sections were searched, and the final answer.
 
 #### Print the Explainability Report
 ```python
 print("\n--- EXPLAINABILITY ---")
 for hop in hops:
     pages = ", ".join(str(p) for p in hop["pages"]) if hop["pages"] else "unknown"
-    was_used = hop["hop_number"] in cited_hop_numbers
+    was_used = hop["hop_number"] 
     status = "USED in answer" if was_used else "retrieved but NOT used"
 
     print(f"\nHop {hop['hop_number']}: \"{hop['section']}\"")
     print(f"node_id: {hop['node_id']} | page(s): {pages} | {status}")
 
-    # Ask the LLM directly why this hop is relevant, grounded in the
-    # actual retrieved content (PageIndex doesn't expose an internal
-    # relevance score, so this is the most honest "why" available).
+    # Ask the LLM directly, right here, why this hop is relevant --
+    # no helper function, built inline for each hop.
+    # Note: this is a generated explanation, not PageIndex's internal
+    # scoring (the API doesn't expose that), but it's grounded in the
+    # actual retrieved content, not made up.
     explain_prompt = f"""
 In 3-4 short lines, explain why the section below is relevant to the question.
 Be specific -- mention the actual numbers or facts in the section that connect to the question.
@@ -281,7 +312,7 @@ Section content: {hop['text']}
     explanation_response = llm.invoke(explain_prompt)
     print(f"Why: {explanation_response.content.strip()}")
 ```
-This is the final layer of explainability. For every hop, it prints:
+For every retrieved hop, this prints:
 - **Where** it came from — section title, node ID, and page number(s)
-- **Whether** it was actually used in the final answer (via the citation check above)
+- **Whether** it was used in the final answer
 - **Why** it's relevant — a short, grounded explanation generated by asking the LLM to justify the section against the question, using only the real retrieved text (not PageIndex's internal scoring, which isn't exposed by the API).

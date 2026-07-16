@@ -242,8 +242,6 @@ for t in tables:
 
 print("\n--- FINAL ANSWER ---")
 print(final_answer)
-
-cited_table_numbers = set(int(n) for n in re.findall(r"\[Table (\d+)\]", final_answer))
 ```
 Runs the pipeline, prints which tables were searched, prints the final answer, and checks the answer text for `[Table N]` citations — a lightweight way to know which retrieved tables actually made it into the answer, with no extra LLM call needed.
 
@@ -252,7 +250,7 @@ Runs the pipeline, prints which tables were searched, prints the final answer, a
 print("\n--- EXPLAINABILITY ---")
 for t in tables:
     pages = ", ".join(str(p) for p in t["pages"]) if t["pages"] else "unknown"
-    was_used = t["table_number"] in cited_table_numbers
+    was_used = t["table_number"]
     status = "USED in answer" if was_used else "retrieved but NOT used"
 
     print(f"\nTable {t['table_number']}: \"{t['section']}\"")
