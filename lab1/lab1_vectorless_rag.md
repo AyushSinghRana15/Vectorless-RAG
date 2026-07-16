@@ -278,12 +278,13 @@ Respond with ONLY this JSON format:
 """
 
 # Try to parse JSON — handle cases where LLM adds extra text or returns invalid JSON
+import re
+response = call_llm(search_prompt)
 try:
-    result = json.loads(call_llm(search_prompt))
+    result = json.loads(response)
 except json.JSONDecodeError:
     # Fallback: try to extract JSON from the response using regex
-    import re
-    match = re.search(r'\{{.*\}}', call_llm(search_prompt), re.DOTALL)
+    match = re.search(r'\{.*\}', response, re.DOTALL)
     if match:
         result = json.loads(match.group())
     else:
