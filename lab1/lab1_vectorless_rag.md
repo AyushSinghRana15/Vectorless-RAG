@@ -179,7 +179,7 @@ def call_llm(prompt, model="nvidia/nemotron-3-ultra-550b-a55b:free"):
 
 ---
 
-## Step 2 — Build Document Tree
+## Step 1 — Build Document Tree
 
 The PageIndex API parses the PDF into a hierarchical tree of sections and subsections, each annotated with a title and summary.
 
@@ -223,7 +223,7 @@ utils.print_tree(tree, exclude_fields=["text"])
 
 ---
 
-## Step 3 — Ask a Question
+## Step 2 — Ask a Question
 
 Define the question you want to ask about the document. The LLM will use the tree to find relevant sections, then read the extracted text from those pages to answer.
 
@@ -233,7 +233,7 @@ QUERY = "What was the total revenue reported in the earnings release?"
 
 ---
 
-## Step 4 — LLM Finds Relevant Sections
+## Step 3 — LLM Finds Relevant Sections
 
 The LLM reads the tree (titles + summaries only — no full text) and picks which nodes likely contain the answer.
 
@@ -312,13 +312,13 @@ for nid in result.get("node_list", []):
 
 ---
 
-## Step 5 — LLM Answers from Extracted Text
+## Step 4 — LLM Answers from Extracted Text
 
 Map the retrieved node IDs to page numbers, extract text from those pages, and have the LLM read it to generate the final answer.
 
 ```mermaid
 flowchart LR
-    A["Relevant Nodes<br/>(from Step 4)"] --> B["Map node_id<br/>→ page numbers"]
+    A["Relevant Nodes<br/>(from Step 3)"] --> B["Map node_id<br/>→ page numbers"]
     B --> C["Extract text<br/>from PDF pages"]
     C --> D["Build context<br/>(page texts joined)"]
     Q["Question"] --> E
@@ -391,7 +391,7 @@ print(answer)
 
 ## Try It Yourself
 
-Change `QUERY` above and re-run from **Step 4**.
+Change `QUERY` above and re-run from **Step 3**.
 
 | Question | What to look for |
 |---|---|
