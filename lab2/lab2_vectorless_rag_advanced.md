@@ -8,6 +8,29 @@ In a normal RAG (Retrieval-Augmented Generation) setup, a question is matched ag
 
 This is useful for questions that can't be answered from a single paragraph — for example, a question that needs a number from one section and a target from another section, to compare them.
 
+Here's what that hopping looks like on the actual document tree — instead of jumping straight to an answer, the search walks down from the top level, one level at a time, until it lands on the exact content it needs:
+
+```mermaid
+flowchart TD
+    Root[Document Tree]
+    Root -->|Hop 1| S2[Section 2]
+    Root --> S1[Section 1]
+    Root --> S3[Section 3]
+
+    S2 -->|Hop 2| S2a[Sub-section 2.1<br/>context found here]
+    S2 --> S2b[Sub-section 2.2]
+
+    S3 --> S3a[Sub-section 3.1<br/>context found here]
+
+    S2a -.->|Hop 3: jumps to a<br/>different section| S3a
+
+    S3a --> Combine[Combine context<br/>from all hops]
+
+    class S2,S2a,S3a,Combine hop
+
+    classDef hop fill:#ffe08a,stroke:#d68f00,stroke-width:2px,color:#1a1a1a;
+```
+
 ## How We're Going to Implement It
 
 The diagram below is the high-level picture of the whole notebook, from PDF to final answer.
