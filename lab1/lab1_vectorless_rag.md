@@ -370,7 +370,7 @@ Send the extracted text (context) along with the question to the LLM. The prompt
 ```python
 # Send the extracted text + question to the LLM for the final answer.
 # The prompt tells the LLM to only use the provided context.
-answer_prompt = f"""
+system_prompt = f"""
 Answer the question based on the provided text.
 
 Context:
@@ -384,7 +384,7 @@ Rules:
 - Be concise
 """
 
-answer = call_llm(answer_prompt)
+answer = call_llm(system_prompt)
 print(answer)
 ```
 
