@@ -179,26 +179,6 @@ def call_llm(prompt, model="nvidia/nemotron-3-ultra-550b-a55b:free"):
 
 ---
 
-## Step 1 — Extract Text from PDF
-
-Extract text from each page of the PDF using PyMuPDF. This text will be used as context for the LLM in the final answer step.
-
-### Extract Text from PDF
-
-```python
-PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
-
-doc = pymupdf.open(PDF_PATH)
-# len(doc) = total pages; i goes from 0 to len(doc)-1
-# i+1 makes page numbers 1-based (page 1, 2, 3...)
-# doc.load_page(i).get_text() extracts raw text from page i
-page_texts = {i+1: doc.load_page(i).get_text() for i in range(len(doc))}
-doc.close()
-print(f"Extracted text from {len(page_texts)} pages.")
-```
-
----
-
 ## Step 2 — Build Document Tree
 
 The PageIndex API parses the PDF into a hierarchical tree of sections and subsections, each annotated with a title and summary.
@@ -343,6 +323,22 @@ flowchart LR
     C --> D["Build context<br/>(page texts joined)"]
     D --> E["LLM generates answer<br/>from context + question"]
     E --> F["Final Answer"]
+```
+
+### Extract Text from PDF
+
+Extract text from each page of the PDF using PyMuPDF.
+
+```python
+PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
+
+doc = pymupdf.open(PDF_PATH)
+# len(doc) = total pages; i goes from 0 to len(doc)-1
+# i+1 makes page numbers 1-based (page 1, 2, 3...)
+# doc.load_page(i).get_text() extracts raw text from page i
+page_texts = {i+1: doc.load_page(i).get_text() for i in range(len(doc))}
+doc.close()
+print(f"Extracted text from {len(page_texts)} pages.")
 ```
 
 ### Build Context
