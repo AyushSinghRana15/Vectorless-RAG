@@ -212,6 +212,7 @@ The PageIndex API parses the PDF into a hierarchical tree of sections and subsec
 ### Build Document Tree
 
 ```python
+# PageIndex SDK for document tree generation and utilities
 from pageindex import PageIndexClient
 from pageindex import utils
 import time
