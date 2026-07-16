@@ -1,621 +1,318 @@
-# 1. Lab Title
+# Vectorless RAG — Multi-Hop Retrieval
 
-## Vectorless RAG — Advanced Scenarios
+## What is Multi-Hop Retrieval?
 
-# What is Vectorless RAG?
+**Multi-hop retrieval** works differently, instead of chunks and embeddings, the document is organized into a **tree** (sections, sub-sections, tables, text). When a question comes in, the search doesn't stop at the first match — it "hops" from one relevant part of the tree to the next, picking up context along the way, until it has gathered enough pieces to actually answer the question.
 
-**Vectorless RAG** replaces embeddings, vector stores, and text chunking with a single idea: let a Language Model (LLM) *reason over a document tree* and then *read the extracted text* from relevant pages.
+This is useful for questions that can't be answered from a single paragraph — for example, a question that needs a number from one section and a target from another section, to compare them.
 
-This lab focuses on two advanced scenarios where Vectorless RAG excels:
-
-1. **Multi-Hop Attribute Aggregation** — Questions that require combining information from multiple sections of a document.
-2. **Structured Data Fidelity** — Extracting accurate values from tables, forms, and structured data.
-
-# 2. Problem Statement / Use Case Overview
-
-## Scenario 1: Multi-Hop Attribute Aggregation
-
-**Problem:** Some questions cannot be answered from a single section. For example, asking about the Executive Chairman's statement on slower spring selling season AND the updated full-year home delivery guidance requires finding:
-- The executive commentary section (Section A)
-- The full-year outlook section (Section B)
-- Combining both pieces of information
-
-Traditional RAG retrieves chunks by similarity — it might find Section A OR Section B, but not both.
-
-**Solution:** Vectorless RAG uses tree-based reasoning to identify that the answer requires **multiple sections**, then aggregates the information.
-
-## Scenario 2: Structured Data Fidelity
-
-**Problem:** Documents contain tables, forms, and structured data. Extracting this data accurately is critical — a wrong number can be costly. For example, extracting the exact number of homes delivered and average sales price for a specific region from a table.
-
-**Solution:** The LLM reads the raw text (which preserves table structure) and extracts values with high fidelity, understanding column headers and row labels from context.
-
-# 3. Input Data
-
-| Item | Detail |
-|------|--------|
-| User query | Natural-language question about a PDF document |
-| PDF document | Century Communities Q1 2025 Earnings Release (`data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf`) |
-| PageIndex API Key | Used to parse the PDF into a hierarchical tree |
-| OpenRouter API Key | Used to call the Language Model (Llama 4 Scout) |
-
-# 4. Processing
-
-## Multi-Hop Attribute Aggregation
-
-Multi-hop questions require information from **multiple sections** of a document. The LLM traverses the tree, hopping between sections to gather all necessary pieces.
-
-```mermaid
-graph TD
-    Q["User Query:\nChairman's statement +\nupdated guidance"] --> R["Root: Q1 2025 Earnings"]
-
-    R --> A["Section A:\nExecutive Commentary"]
-    R --> B["Section B:\nFull Year Outlook"]
-    R --> C["Section C:\nFinancial Tables"]
-
-    A --> A1["Page 1: Dale Francescon's statement"]
-    B --> B1["Page 2: Updated home delivery guidance"]
-    C --> C1["Page 6: Home Deliveries table"]
-
-    A1 --> H1["Hop 1: Found\nChairman's statement"]
-    B1 --> H2["Hop 2: Found\nupdated guidance"]
-    H1 --> ANSWER["Combined Answer:\nEconomic uncertainty +\n10,400–11,000 homes"]
-    H2 --> ANSWER
-
-    style Q fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style R fill:#f5f5f5,stroke:#616161,color:#212121
-    style A fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#f5f5f5,stroke:#616161,color:#212121
-    style A1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style B1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style C1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style H1 fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style H2 fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style ANSWER fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-```
-
-**How hopping works:**
-1. The LLM starts at the **root** and reads section titles/summaries
-2. **Hop 1:** Identifies Section A (Executive Commentary) contains the Chairman's statement
-3. **Hop 2:** Realizes the question also asks about "updated guidance" — hops to Section B (Full Year Outlook)
-4. The LLM **aggregates** information from both hops into a single answer
-
-## Structured Data Fidelity Flow
+Here's what that hopping looks like on the actual document tree — instead of jumping straight to an answer, the search walks down from the top level, one level at a time, until it lands on the exact content it needs:
 
 ```mermaid
 flowchart TD
-    A(["User asks about table data"]) --> B["LLM finds relevant nodes"]
-    B --> C["Extract text from pages"]
-    C --> D["Raw text preserves\ntable structure"]
-    D --> E["LLM reads columns,\nrows, and values"]
-    E --> F(["Accurate extraction"])
+    Root[Document Tree]
+    Root -->|Hop 1| S2[Section 2]
+    Root --> S1[Section 1]
+    Root --> S3[Section 3]
 
-    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#f5f5f5,stroke:#616161,color:#212121
-    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    S2 -->|Hop 2| S2a[Sub-section 2.1<br/>context found here]
+    S2 --> S2b[Sub-section 2.2]
+
+    S3 --> S3a[Sub-section 3.1<br/>context found here]
+
+    S2a -.->|Hop 3: jumps to a<br/>different section| S3a
+
+    S3a --> Combine[Combine context<br/>from all hops]
+
+    class S2,S2a,S3a,Combine hop
+
+    classDef hop fill:#ffe08a,stroke:#d68f00,stroke-width:2px,color:#1a1a1a;
 ```
 
-## Combined Flow
+## How We're Going to Implement It
+
+The diagram below is the high-level picture of the whole notebook, from PDF to final answer.
 
 ```mermaid
 flowchart TD
-    A(["Complex query:\nmulti-hop + structured"]) --> B["LLM identifies\nmultiple sections"]
-    B --> C["Retrieve nodes from\nmultiple tables + sections"]
-    C --> D["Combine context"]
-    D --> E["LLM extracts values\nfrom tables"]
-    E --> F["LLM aggregates\nand synthesizes"]
-    F --> G(["Final answer with\naccurate numbers"])
-
-    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style D fill:#f5f5f5,stroke:#616161,color:#212121
-    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style F fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    A[Load the PDF document] --> B[Build a tree structure<br/>of the document's sections]
+    B --> C[User asks a question]
+    C --> D[Multi-hop retrieval:<br/>traverse the tree to<br/>gather relevant context]
+    D --> E[Send the combined context<br/>and question to the LLM]
+    E --> F[LLM gives the final answer]
 ```
 
-1. The **PageIndex API** parses the PDF into a tree of sections and subsections.
-2. The **LLM** reasons over the tree, hopping between sections to find all relevant information.
-3. The LLM **aggregates** information from multiple hops into a single answer.
+---
 
-# 5. Output
+## Walking Through the Notebook
 
-### Multi-Hop Example
-> _"The Executive Chairman, Dale Francescon, stated that economic uncertainty, interest rate volatility, and decline in consumer confidence contributed to a slower than typical spring selling season. The updated full-year home delivery guidance range is 10,400 to 11,000 homes."_
+### Setup
 
-### Structured Data Example
-> _"In the first quarter of 2025, the 'Texas' region delivered 457 homes with an average sales price of $298.9 thousand."_
-
-# 6. Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| LLM | Llama 4 Scout via OpenRouter |
-| Document Parsing | PageIndex API |
-| PDF Text Extraction | PyMuPDF (`pymupdf`) |
-| LLM Client | OpenAI SDK (compatible with OpenRouter) |
-| Language | Python 3.12 |
-| Runtime | Jupyter Notebook |
-
-# 7. Underlying Concepts
-
-## Multi-Hop Attribute Aggregation
-- **Definition:** Combining information from multiple document sections to answer a single question.
-- **Challenge:** Traditional RAG retrieves chunks by similarity — it may miss related sections.
-- **Solution:** Tree-based reasoning allows the LLM to identify that the answer requires multiple sources.
-
-## Structured Data Fidelity
-- **Definition:** Extracting accurate values from tables, forms, and structured data.
-- **Challenge:** PDF table extraction often loses formatting; wrong values can be costly.
-- **Solution:** Raw text preserves table structure (column headers, row labels), allowing accurate extraction.
-
-## Why Vectorless RAG Excels Here
-- **No chunking** — the LLM reads complete sections, not arbitrary chunks.
-- **Reasoning over similarity** — the LLM understands that a question requires multiple sources.
-- **Text preservation** — raw text maintains table structure better than extracted data.
-- **Traversal visualization** — the reasoning path through the document tree can be visualized.
-
-> Refer to the original implementation: [Clement-Okolo/Vectorless-Rag](https://github.com/Clement-Okolo/Vectorless-Rag)
-
-# 8. Pre-requisites
-
-- Basic familiarity with Python (functions, `import` statements).
-- Completion of Lab 1 (Vectorless RAG basics).
-- **PageIndex API Key** — sign up at [pageindex.ai](https://pageindex.ai).
-- **OpenRouter API Key** — sign up at [openrouter.ai](https://openrouter.ai).
-- Understanding of what multi-hop reasoning means in the context of RAG.
-
-# 9. Environment / Dependencies Setup
-
-## Install Dependencies
-
-The cell below installs all required Python packages:
-
-| Package | Purpose |
-|---------|---------|
-| `pageindex` | Document tree generation and retrieval via PageIndex API |
-| `openai` | LLM client (used with OpenRouter's OpenAI-compatible endpoint) |
-| `python-dotenv` | Load API keys from `.env` file |
-| `pymupdf` | Extract text from PDF pages |
-
-Run this cell first — it only needs to be run once per session.
-
+#### Install Dependencies
 ```python
-!pip install -q pageindex openai python-dotenv pymupdf
+# Install PageIndex for vectorless hierarchical retrieval, LangChain Groq for the LLM, and requests for downloading the file.
+!pip install pageindex langchain-groq requests dotenv 
 ```
+This installs the tree-based retrieval library, the LLM wrapper, and `requests` for handling files.
 
-## Import Libraries
-
-Import the standard library and third-party modules used throughout the notebook. `os` and `json` handle file paths and caching. `re` parses JSON from LLM responses. `pymupdf` extracts text from PDFs. `OpenAI` is the LLM client. `load_dotenv` loads API keys from the `.env` file.
-
+#### Import Libraries
 ```python
+# Import core modules
 import os
-import json
+import time
+import requests
 import re
-import pymupdf
-from openai import OpenAI
+
+# Import PageIndex for vectorless retrieval
+from pageindex import PageIndexClient
+import pageindex.utils as utils
 from dotenv import load_dotenv
+
+# Import LangChain's Groq wrapper
+from langchain_groq import ChatGroq
 ```
+Brings in the retrieval client, a helper to load environment variables (like API keys), and the LLM wrapper we'll use later.
 
-## Load API Keys
-
-Load API keys from the `.env` file in the project root (`../.env` relative to this notebook). If either key is missing from `.env`, you'll be prompted to enter it manually.
-
+#### Setup API Keys
 ```python
 load_dotenv("../.env")
 
 PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# If keys are missing, prompt the user to enter them
-if not PAGEINDEX_API_KEY:
-    PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
-if not OPENROUTER_API_KEY:
-    OPENROUTER_API_KEY = input("Enter your OpenRouter API key (get one at https://openrouter.ai): ").strip()
-
-print("Keys loaded.")
+# Initialize the PageIndex Client
+pi_client = PageIndexClient(api_key=PAGEINDEX_API_KEY)
 ```
-
-## Set Up the LLM
-
-### `call_llm(prompt, model)`
-
-Sends a prompt to the LLM via OpenRouter and returns the response text. Creates a fresh OpenAI client pointed at OpenRouter's API endpoint. Uses `meta-llama/llama-4-scout-17b-16e-instruct` by default with `temperature=0` for deterministic output.
-
-```python
-def call_llm(prompt, model="meta-llama/llama-4-scout-17b-16e-instruct"):
-    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
-    return client.chat.completions.create(
-        model=model, messages=[{"role": "user", "content": prompt}], temperature=0, max_tokens=1024
-    ).choices[0].message.content.strip()
-```
+Loads the API key from an `.env` file and creates the client we'll use to build and search the document tree.
 
 ---
 
-## Load and Parse the PDF
+### Load and Parse the PDF
 
-Extract text from each page of the PDF using PyMuPDF. This text will be used as context for the LLM when answering questions.
-
-### Define PDF Path
-
-Point this to any PDF you want to query.
-
+#### Define PDF Path
 ```python
+import os
+
+# Point to the local PDF document you already have
 PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
+
+# Let's add a quick beginner-friendly check to make sure the file exists where we expect it
+if os.path.exists(PDF_PATH):
+    print(f"Success: Found the document at '{PDF_PATH}'")
+else:
+    print(f"Error: Could not find the document. Please make sure the 'data' folder is in the same directory as this notebook.")
 ```
+A simple check to make sure the PDF is actually where the notebook expects it, before we try to do anything with it.
 
-### Extract Text from PDF
-
-Opens the PDF with PyMuPDF and builds a dictionary mapping 1-based page numbers to their extracted text. The raw text preserves table structure (column headers, row labels) which is critical for accurate data extraction.
-
+#### Submit and Index Document (Tree Construction)
 ```python
-doc = pymupdf.open(PDF_PATH)
-page_texts = {i+1: doc.load_page(i).get_text() for i in range(len(doc))}
-doc.close()
-print(f"Extracted text from {len(page_texts)} pages.")
+# Submit your local document to PageIndex. 
+# It reads your financial document and organizes it into a logical tree (Sections, Tables, Text).
+doc_info = pi_client.submit_document(PDF_PATH)
+doc_id = doc_info["doc_id"]
+
+print(f"Document Submitted. Tracking ID: {doc_id}")
+
+# Polling loop: Wait for the document tree to finish building
+print("Waiting for the document to be indexed...")
+while not pi_client.is_retrieval_ready(doc_id):
+    print("Still processing... checking again in 5 seconds.")
+    time.sleep(5)
+
+print("Indexing Complete! The hierarchical tree is ready for multi-hop retrieval.")
 ```
+This is the step where the PDF is turned into a tree. The document is submitted, and the notebook waits (polling every 5 seconds, printing a status update each time) until the tree is fully built and ready to be searched.
+
+#### Print the Document Tree
+```python
+tree = pi_client.get_tree(doc_id, node_summary=True)["result"]
+print("Document Tree Structure:")
+utils.print_tree(tree)
+```
+Once the tree is ready, this pretty-prints the actual hierarchical structure PageIndex built from the PDF — every section, sub-section, and table as a node, with a short summary of what each one contains. It's a nice sanity check before running any queries: you can see exactly what the retrieval function will be searching over.
+
+#### Initialize the LLM
+```python
+# Initialize the LLM
+llm = ChatGroq(
+    model="...", 
+    temperature=0.0,
+    max_tokens=300  
+)
+```
+Sets up the LLM that will later read the retrieved context and generate the final answer.
 
 ---
 
-## Build Document Tree (with caching)
+### Define Retrieval Function (Multi-Hop, With Explainability Tracking)
 
-The PageIndex API parses the PDF into a hierarchical tree of sections and subsections. The tree is cached as JSON so repeat runs with the same PDF skip the API call.
+This is the core of the multi-hop logic — the function sends the question to the tree, waits for the search to finish, then walks through the top matching sections **one at a time**. For each one, it records not just the text, but exactly *where* that text came from: the section title, the node's unique ID, and the page number(s). This metadata is what makes the retrieval explainable later.
 
-### Set Up Caching and PageIndex
-
-Import the PageIndex client and define the cache path. The cache file is named after the PDF filename with `_tree.json` appended.
-
-```python
-from pageindex import PageIndexClient
-from pageindex import utils
-import time
-
-CACHE_PATH = f"cache/{os.path.basename(PDF_PATH).replace('.pdf', '_tree.json')}"
-os.makedirs("cache", exist_ok=True)
+```mermaid
+flowchart LR
+    A[Query] -->|search tree| B[Hop 1: check<br/>a section]
+    B -->|not enough,<br/>go to next| C[Hop 2: check<br/>next section]
+    C -->|not enough,<br/>go to next| D[Hop 3: check<br/>next section]
+    D -->|combine found text| E[Context ready<br/>for LLM]
 ```
 
-### Load or Build the Tree
-
-Try loading from cache first. If it's a cache miss, submit the PDF to PageIndex, poll until processing completes (up to 5 minutes), save the result to cache, and display the tree structure.
-
 ```python
-tree = None
-if os.path.exists(CACHE_PATH):
-    with open(CACHE_PATH) as f:
-        tree = json.load(f)
-    print("Loaded tree from cache.")
+def retrieve_from_pageindex(query, doc_id, top_k=5):
+    """
+    Searches the document tree for the given query.
+    Every piece of context returned here is tagged with:
+      - which hop it was (1st match, 2nd match, ...)
+      - the section title
+      - the node id (the tree's unique ID for that section)
+      - the page number(s) the text came from
+    This metadata is what lets us later explain WHY a node was chosen.
+    """
+    response = pi_client.submit_query(doc_id=doc_id, query=query)
+    retrieval_id = response.get("retrieval_id")
 
-if tree is None:
-    pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
-    result = pi.submit_document(PDF_PATH)
-    doc_id = result["doc_id"]
-    print(f"Submitted: {doc_id}")
+    if not retrieval_id:
+        return []
 
-    elapsed = 0
-    while elapsed < 300:
-        if pi.is_retrieval_ready(doc_id):
+    while True:
+        retrieval = pi_client.get_retrieval(retrieval_id)
+        status = retrieval.get("status")
+        if status == "completed":
             break
-        time.sleep(5)
-        elapsed += 5
-        print(f"  {elapsed}s...")
-    else:
-        raise TimeoutError("PageIndex timeout")
+        elif status == "failed":
+            return []
+        time.sleep(1)
 
-    tree = pi.get_tree(doc_id, node_summary=True)["result"]
-    with open(CACHE_PATH, "w") as f:
-        json.dump(tree, f, indent=2)
-    print("Tree cached.")
+    nodes = retrieval.get("retrieved_nodes", [])
+    hops = []
 
-utils.print_tree(tree, exclude_fields=["text"])
+    for index, node in enumerate(nodes[:top_k]):
+        node_name = node.get("title") or f"Section {index + 1}"
+        node_id = node.get("id", "unknown")   
+        relevant_contents = node.get("relevant_contents", [])
+
+        section_text = []
+        page_numbers = []
+        for group in relevant_contents:
+            for item in group:
+                content = item.get("relevant_content")
+                if content:
+                    section_text.append(content)
+
+                # page number is embedded in a string like "<physical_index_6>"
+                raw_page = item.get("physical_index", "")
+                match = re.search(r"(\d+)", raw_page) if isinstance(raw_page, str) else None
+                if match:
+                    page_num = int(match.group(1))
+                    if page_num not in page_numbers:
+                        page_numbers.append(page_num)
+
+        hops.append({
+            "hop_number": index + 1,
+            "section": node_name,
+            "node_id": node_id,
+            "pages": page_numbers,
+            "text": "\n".join(section_text)
+        })
+
+    return hops
 ```
+
+**What's happening here, step by step:**
+1. The query is submitted to the document tree.
+2. The notebook polls until the search is marked `completed`.
+3. It loops through the top `top_k` matching sections **serially** (one after another) — this is the "hop."
+4. For each hop, it pulls out the readable text, the node's ID, and its page number(s) (using a small regex, since PageIndex embeds the page inside a string like `"<physical_index_6>"` rather than as a plain number).
+5. It returns a structured list of hops — each one knowing exactly which section, node, and page it came from.
+
+#### Combine Context and Ask the LLM
+```python
+def vectorless_rag(query, doc_id):
+    hops = retrieve_from_pageindex(query, doc_id)
+
+    if not hops:
+        return "No relevant context found.", [], ""
+
+    labeled_context = "\n\n".join(h["text"] for h in hops)
+
+    prompt = f"""
+You are a financial analyst. Answer the question below using only the context provided.
+Give a direct, interpreted answer in plain language, the way an analyst would explain it
+to someone in a meeting — not a mechanical calculation. Consider seasonality and other
+relevant signals in the context (like backlog or order trends) rather than just scaling
+one quarter's number by 4.
+
+Context:
+{labeled_context}
+
+Question: {query}
+"""
+
+    response = llm.invoke(prompt)
+    final_answer = response.content
+
+    return final_answer, hops, labeled_context
+```
+This ties it together — it calls the hop-by-hop retrieval function, combines the retrieved text into one block of context, and asks the LLM for a plain-language, interpreted answer rather than a mechanical calculation. The prompt steers it away from naive annualization (e.g. multiplying a quarterly number by 4) and toward weighing seasonality, backlog, and order trends where relevant.
 
 ---
 
-## Helper Functions
+### Run Query and Show the Tracking
 
-Reusable functions for retrieving nodes and building context from the document tree.
-
-### `parse_json(text)`
-
-Extracts and robustly parses JSON from the LLM's response text. Handles markdown code fences (```` ```json ... ``` ````) that LLMs often wrap around JSON output, locates the outermost curly braces, and parses the inner JSON. Falls back to regex extraction of `thinking` and `node_list` fields if `json.loads` fails due to unescaped characters in the LLM output.
-
+#### Define the Question
 ```python
-def parse_json(text):
-    """Extract and robustly parse JSON from LLM response, ignoring extra text."""
-    text = re.sub(r"```json\s*|\s*```", "", text.strip())
-    
-    # Locate the outermost curly braces
-    s = text.find("{")
-    
-    # Walk backward from the end to find the true matching closing brace for the JSON object
-    # This prevents catching trailing text as part of the JSON payload
-    e = text.rfind("}")
-    
-    if s != -1 and e != -1:
-        text = text[s:e+1]
-        
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    
-    # Fallback: extract thinking and node_list with regex when JSON is malformed
-    thinking = ""
-    m_think = re.search(r'"thinking"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL)
-    if m_think:
-        thinking = m_think.group(1)
-    
-    node_list = []
-    m_nodes = re.search(r'"node_list"\s*:\s*\[(.*?)\]', text, re.DOTALL)
-    if m_nodes:
-        node_list = re.findall(r'"(\d+)"', m_nodes.group(1))
-    
-    return {"thinking": thinking, "node_list": node_list}
+# The question we want to ask
+query = "How much did GAAP net income grow or shrink from Q1 2024 to Q1 2025? Separately, what was adjusted net income (not adjusted EBITDA) for both periods, and does it tell a different story?"
 ```
+This is a good test question for multi-hop retrieval because the answer needs two different numbers from two different sections — GAAP net income (Consolidated Statements of Operations) and adjusted net income (the Non-GAAP Reconciliation table).
 
-### `retrieve_nodes(query)`
-
-Uses the LLM to find relevant nodes for a given query with multi-hop reasoning. Strips full text from the tree (keeping only titles + summaries), sends it to the LLM with the question, and returns the parsed JSON result containing a step-by-step traversal path (hops) and a list of relevant node IDs. This is the core retrieval function that enables tree-based reasoning.
-
+#### Run the Pipeline and Print the Trace + Answer
 ```python
-def retrieve_nodes(query):
-    """Use LLM to find relevant nodes and map the hop-by-hop traversal with titles."""
-    tree_slim = utils.remove_fields(tree.copy(), fields=["text"])
-    prompt = f"""
-Given a question and a document tree, find nodes likely to contain the answer.
-You must perform multi-hop reasoning. Document your exact step-by-step traversal path.
+print(f"Question: {query}\n")
+print("Navigating document tree and generating answer...\n")
+
+# Run the pipeline
+final_answer, hops, labeled_context = vectorless_rag(query, doc_id)
+
+# --- SECTIONS SEARCHED (RETRIEVAL TRACE) ---
+print("--- SECTIONS SEARCHED (RETRIEVAL TRACE) ---")
+for hop in hops:
+    print(f"Hop {hop['hop_number']}: {hop['section']}")
+
+# --- FINAL ANSWER ---
+print("\n--- FINAL ANSWER ---")
+print(final_answer)
+```
+Runs the whole pipeline, then prints the question, which sections were searched, and the final answer.
+
+#### Print the Explainability Report
+```python
+print("\n--- EXPLAINABILITY ---")
+for hop in hops:
+    pages = ", ".join(str(p) for p in hop["pages"]) if hop["pages"] else "unknown"
+    was_used = hop["hop_number"] 
+    status = "USED in answer" if was_used else "retrieved but NOT used"
+
+    print(f"\nHop {hop['hop_number']}: \"{hop['section']}\"")
+    print(f"node_id: {hop['node_id']} | page(s): {pages} | {status}")
+
+    # Ask the LLM directly, right here, why this hop is relevant --
+    # no helper function, built inline for each hop.
+    # Note: this is a generated explanation, not PageIndex's internal
+    # scoring (the API doesn't expose that), but it's grounded in the
+    # actual retrieved content, not made up.
+    explain_prompt = f"""
+In 3-4 short lines, explain why the section below is relevant to the question.
+Be specific -- mention the actual numbers or facts in the section that connect to the question.
+Do not repeat the question. Do not add extra commentary.
 
 Question: {query}
 
-Tree:
-{json.dumps(tree_slim, indent=2)}
-
-JSON only:
-{{
-  "hops": [
-    {{"step": 1, "node_id": "id1", "section_title": "Name of the table or section", "reason": "Looked here first because..."}},
-    {{"step": 2, "node_id": "id2", "section_title": "Name of the next table", "reason": "Then realized I needed X..."}}
-  ],
-  "node_list": ["id1", "id2"]
-}}
+Section title: {hop['section']}
+Section content: {hop['text']}
 """
-    return parse_json(call_llm(prompt))
+    explanation_response = llm.invoke(explain_prompt)
+    print(f"Why: {explanation_response.content.strip()}")
 ```
-
-### `get_context(node_list)`
-
-Extracts text from pages covered by the given node list. Maps each node ID to its page range, collects the extracted text from those pages (deduplicating), and joins them with page separators. Returns a single string of all relevant page text.
-
-```python
-def get_context(node_list):
-    """Extract text from pages covered by the given nodes."""
-    node_map = utils.create_node_mapping(tree, include_page_ranges=True, max_page=len(page_texts))
-    texts, seen = [], set()
-    for nid in node_list:
-        info = node_map[nid]
-        for p in range(info["start_index"], info["end_index"] + 1):
-            if p not in seen and p in page_texts:
-                texts.append(f"--- Page {p} ---\n{page_texts[p]}")
-                seen.add(p)
-    return "\n\n".join(texts)
-```
-
-### `plot_traversal(hops)`
-
-Visualizes the LLM's multi-hop reasoning path as a directed graph using `networkx` and `matplotlib`. Shows the user query as the starting point and each hop as a node in the traversal chain, with edges connecting consecutive steps.
-
-```python
-import networkx as nx
-import matplotlib.pyplot as plt
-
-def plot_traversal(hops):
-    """Draws a visual graph of the LLM's multi-hop reasoning path."""
-    G = nx.DiGraph()
-    
-    # Define the starting point
-    G.add_node("User Query", color="#e3f2fd") # Light blue
-    
-    node_colors = ["#e3f2fd"]
-    pos = {"User Query": (0, 1)}
-    
-    # Build the path
-    for i, hop in enumerate(hops):
-        label = f"Hop {hop['step']}:\nNode {hop['node_id']}"
-        G.add_node(label, color="#fff3e0") # Light orange
-        node_colors.append("#fff3e0")
-        
-        # Connect to the previous step (or query if it is the first step)
-        if i == 0:
-            G.add_edge("User Query", label)
-        else:
-            prev_label = f"Hop {hops[i-1]['step']}:\nNode {hops[i-1]['node_id']}"
-            G.add_edge(prev_label, label)
-            
-        # Layout positioning
-        pos[label] = (i + 1, i % 2) # Staggers them slightly for a "hopping" look
-        
-    # Draw the graph
-    plt.figure(figsize=(10, 4))
-    nx.draw(G, pos, with_labels=True, node_color=node_colors, 
-            node_size=4000, font_size=9, font_weight="bold", 
-            edge_color="#616161", arrows=True, arrowsize=20)
-    
-    plt.title("Vectorless RAG : Reasoning Path", fontsize=14)
-    plt.margins(0.2)
-    plt.show()
-```
-
----
-
-# Scenario 1: Multi-Hop Attribute Aggregation
-
-```mermaid
-flowchart LR
-    A["Query:\nChairman's statement +\nupdated guidance"] --> B["LLM identifies\n2 sections needed"]
-    B --> C["Executive\ncommentary"]
-    B --> D["Full Year\nOutlook"]
-    C --> E["Combine +\nsynthesize"]
-    D --> E
-    E --> F["Answer:\nEconomic uncertainty +\n10,400–11,000 homes"]
-    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style E fill:#f5f5f5,stroke:#616161,color:#212121
-    style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-```
-
-### Define Multi-Hop Query
-
-Set a question that requires information from multiple document sections to answer.
-
-```python
-# Change this to a question that requires info from multiple sections
-QUERY_MULTI_HOP = "What did the Executive Chairman say was the cause of the slower spring selling season, and what is the new updated full-year home delivery guidance range?"
-```
-
-### Retrieve Nodes for Multi-Hop Query
-
-Send the query to the LLM to identify which nodes are relevant. For multi-hop questions, the LLM should return nodes from multiple sections and document its traversal path.
-
-```python
-result = retrieve_nodes(QUERY_MULTI_HOP)
-
-print("--- RAG Traversal Path ---")
-for hop in result["hops"]:
-    print(f"Hop {hop['step']} (Node {hop['node_id']}): {hop['reason']}")
-
-print("\nFinal Nodes Retrieved:", result["node_list"])
-```
-
-Expected output:
-```
---- RAG Traversal Path ---
-Hop 1 (Node 0000): Initial overview of Century Communities' Q1 2025 results
-Hop 2 (Node 0003): Contains the Full Year 2025 Outlook and updated home delivery guidance
-
-Final Nodes Retrieved: ['0000', '0003']
-```
-
-### Answer Multi-Hop Query
-
-Build context from the retrieved nodes and send it to the LLM with the question to get the final answer.
-
-```python
-context = get_context(result["node_list"])
-answer = call_llm(f"Context:\n{context}\n\nQuestion: {QUERY_MULTI_HOP}\n\nAnswer concisely.")
-print("Answer:", answer)
-```
-
-Expected output:
-```
-Answer: The Executive Chairman, Dale Francescon, stated that economic uncertainty, interest rate volatility, and decline in consumer confidence contributed to a slower than typical spring selling season. 
-The updated full-year home delivery guidance range is 10,400 to 11,000 homes.
-```
-
-### Visualize the Traversal Path
-
-```python
-# Call the function with our results
-plot_traversal(result["hops"])
-```
-
-### Why Multi-Hop is Hard
-
-Traditional RAG retrieves chunks by similarity. A query about the Chairman's statement AND updated guidance might only match the commentary section OR the outlook section — not both. Vectorless RAG with tree-based reasoning can identify that the answer requires **multiple sections**.
-
----
-
-# Scenario 2: Structured Data Fidelity
-
-```mermaid
-flowchart LR
-    A["Query:\nTexas region homes\nand avg price"] --> B["LLM finds\nHome Deliveries table"]
-    B --> C["Extract raw text"]
-    C --> D["Text preserves\ntable structure"]
-    D --> E["LLM reads\ncolumns + rows"]
-    E --> F["Answer:\n457 homes,\n$298.9K avg price"]
-    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#f5f5f5,stroke:#616161,color:#212121
-    style D fill:#f3e5f5,stroke:#6a1b9a,color:#4a148c
-    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-```
-
-### Define Structured Data Query
-
-Set a question about extracting specific values from a table in the document.
-
-```python
-# Change this to a question about extracting specific values from a table
-QUERY_STRUCTURED = "According to the Home Deliveries table, what was the exact number of homes delivered and the average sales price for the 'Texas' region in the first quarter of 2025?"
-```
-
-### Retrieve Nodes for Structured Data
-
-Find the nodes containing the relevant table or structured data.
-
-```python
-result = retrieve_nodes(QUERY_STRUCTURED)
-
-print("--- Table Analysis Path (Structured Data) ---")
-for step in result["hops"]:
-    print(f"Step {step['step']} (Table Node {step['node_id']}): {step['reason']}")
-
-print("\nFinal Nodes Retrieved:", result["node_list"])
-```
-
-Expected output:
-```
---- Table Analysis Path (Structured Data) ---
-Step 1 (Table Node 0000): Started with the main report to understand the context of Century Communities' Q1 2025 results.
-Step 2 (Table Node 0001): Moved to the detailed Q1 2025 results to find specific operational metrics.
-Step 3 (Table Node 0009): Navigated to the Home Deliveries section for detailed information on home deliveries.
-Step 4 (Table Node 0008): Checked the Net New Home Contracts section for regional breakdowns, realizing it might contain or lead to the necessary home deliveries data.
-
-Final Nodes Retrieved: ['0000', '0001', '0009', '0008']
-```
-
-### Answer Structured Data Query
-
-Extract the page text from the retrieved nodes and have the LLM read the raw table data to produce an accurate answer.
-
-```python
-context = get_context(result["node_list"])
-answer = call_llm(f"Context:\n{context}\n\nQuestion: {QUERY_STRUCTURED}\n\nAnswer concisely.")
-print("Answer:", answer)
-```
-
-Expected output:
-```
-Answer: In the first quarter of 2025, the 'Texas' region delivered 457 homes with an average sales price of $298.9 thousand.
-```
-
-### Visualize the Traversal Path
-
-```python
-# Generate the visual plot for the table extraction
-plot_traversal(result["hops"])
-```
-
-### Why Structured Data Fidelity Matters
-
-Tables in PDFs are often poorly formatted when extracted. Vectorless RAG preserves the original text flow, allowing the LLM to understand table structure from context (column headers, row labels, etc.).
-
----
-
-## Try It Yourself
-
-Change the `QUERY_*` variables and re-run the cells. Here are some generic patterns to try:
-
-| Scenario | Example Question |
-|----------|------------------|
-| Multi-Hop | "What was the net income and how does it compare to the prior year period?" |
-| Structured Data | "What is the number of net new home contracts for the West region?" |
-| Multi-Hop + Table | "What were the total homebuilding gross margins and how do they break down by region?" |
+For every retrieved hop, this prints:
+- **Where** it came from — section title, node ID, and page number(s)
+- **Whether** it was used in the final answer
+- **Why** it's relevant — a short, grounded explanation generated by asking the LLM to justify the section against the question, using only the real retrieved text (not PageIndex's internal scoring, which isn't exposed by the API).
