@@ -61,6 +61,33 @@ flowchart TD
     style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
+### PageIndex's Reasoning-Based Retrieval Loop
+
+```mermaid
+flowchart TD
+    A["PDF pages"] --> B{"TOC found\n(first ~20 pages)?"}
+    B -->|"Yes"| C["Parse TOC entries\nmap titles → page ranges"]
+    B -->|"No"| D["LLM scans page text\ninfers section boundaries"]
+    C --> E["Recursive splitting\n(max 10 pages / 20k tokens per node)"]
+    D --> E
+    E --> F["Node tree\n(title, node_id, page range, children)"]
+    F --> G["LLM writes summary per node\n(retrieval reads summaries, not raw text)"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style B fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style C fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style D fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style E fill:#f5f5f5,stroke:#616161,color:#212121
+    style F fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style G fill:#fff3e0,stroke:#e65100,color:#bf360c
+```
+
+1. **PDF pages** — text is pulled out page by page (the open-source version uses standard PDF parsing; PageIndex's hosted API swaps this for enhanced OCR on messier PDFs).
+2. **TOC check** — it scans roughly the first 20 pages looking for a real table of contents. Insurance policy docs and financial reports often have one; if found, PageIndex parses those entries and maps each title to its actual start/end page in the body.
+3. **Heading detection** — if no TOC exists, an LLM reads through the page text directly and infers section boundaries itself (font-size/indent cues aren't used — it's reasoning over text, similar to how a person skims for headings).
+4. **Recursive splitting** — whichever path found the boundaries, each section then gets recursively broken into child nodes if it's too big, bounded by two caps: max pages per node (default 10) and max tokens per node (default 20,000). This is what keeps a single node from becoming a 40-page dump.
+5. **Node tree** — the output is a JSON tree where every node carries a title, node_id, start_index/end_index (page range), and nested nodes for children. If summaries are enabled (default on), a final pass has the LLM write a short summary per node — that summary is what the retrieval-time LLM actually reads to decide which branch to follow, not the raw text.
+
 ### How PageIndex Builds the Tree
 
 PageIndex parses the PDF into a hierarchical tree. The root represents the entire document, middle nodes represent sections/subsections, and leaf nodes represent individual pages. Each node contains a `node_id`, `title`, `description`, and optional `metadata` — forming an **in-context index** that the LLM can reason over during inference.
@@ -86,34 +113,6 @@ graph TD
     style C1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
     style C2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
 ```
-
-### PageIndex's Reasoning-Based Retrieval Loop
-
-Unlike vector-based RAG which relies on static semantic similarity, PageIndex uses an iterative reasoning process — mimicking how a human navigates a long document. The LLM reads the Table of Contents (ToC), reasons about where to look next, extracts content, and repeats until it has enough information to answer.
-
-```mermaid
-flowchart TD
-    A(["User asks a question"]) --> B["1. Read Table of Contents\n(LLM receives the tree\nof titles + summaries)"]
-    B --> C["2. Select a Section\n(LLM reasons which node\nis most relevant)"]
-    C --> D["3. Extract Relevant Information\n(Retrieve text from\nselected node/pages)"]
-    D --> E{"4. Is the Information\nSufficient?"}
-    E -->|"No — need more context"| B
-    E -->|"Yes — enough to answer"| F["5. Answer the Question\n(LLM generates response\nfrom collected text)"]
-    F --> G(["Final answer"])
-
-    style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style B fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    style C fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style D fill:#f5f5f5,stroke:#616161,color:#212121
-    style E fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style F fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-```
-
-This iterative loop is what makes PageIndex different from vector-based RAG:
-- **No embeddings needed** — the LLM uses reasoning, not similarity scores
-- **Context-aware** — each iteration builds on what was already found
-- **Handles cross-references** — the LLM can follow references like "see Appendix G" by navigating the tree
 
 1. The **PageIndex API** parses the PDF into a tree of sections and subsections, each annotated with a title and summary.
 2. The **LLM** receives the tree (without full text) and the user's question. It reasons over titles and summaries to identify which nodes are most likely to contain the answer.
