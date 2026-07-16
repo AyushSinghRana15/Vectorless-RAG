@@ -30,11 +30,11 @@ Notice both highlighted table nodes connect **straight down** from the root, not
 
 ```mermaid
 flowchart TD
-    A[Load the PDF document] --> B[Build a tree structure<br/>that keeps tables intact]
-    B --> C[User asks a question]
-    C --> D[Retrieve the matching<br/>table node(s), whole]
-    D --> E[Send the table(s)<br/>and question to the LLM]
-    E --> F[LLM gives the final answer]
+    A["Load the PDF document"] --> B["Build a tree structure<br/>that keeps tables intact"]
+    B --> C["User asks a question"]
+    C --> D["Retrieve the matching<br/>table node(s), whole"]
+    D --> E["Send the table(s)<br/>and question to the LLM"]
+    E --> F["LLM gives the final answer"]
 ```
 
 ---
