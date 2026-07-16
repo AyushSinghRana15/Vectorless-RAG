@@ -2,9 +2,7 @@
 
 ## What is Multi-Hop Retrieval?
 
-In a normal RAG (Retrieval-Augmented Generation) setup, a question is matched against chunks of text using vector embeddings, and the top matching chunks are handed to the LLM.
-
-**Multi-hop retrieval** works differently. Instead of chunks and embeddings, the document is organized into a **tree** (sections, sub-sections, tables, text). When a question comes in, the search doesn't stop at the first match — it "hops" from one relevant part of the tree to the next, picking up context along the way, until it has gathered enough pieces to actually answer the question.
+**Multi-hop retrieval** works differently, instead of chunks and embeddings, the document is organized into a **tree** (sections, sub-sections, tables, text). When a question comes in, the search doesn't stop at the first match — it "hops" from one relevant part of the tree to the next, picking up context along the way, until it has gathered enough pieces to actually answer the question.
 
 This is useful for questions that can't be answered from a single paragraph — for example, a question that needs a number from one section and a target from another section, to compare them.
 
@@ -52,7 +50,7 @@ flowchart TD
 
 #### Install Dependencies
 ```python
-!pip install pageindex langchain-openrouter requests
+!pip install pageindex langchain-groq requests dotenv
 ```
 This installs the tree-based retrieval library, the LLM wrapper, and `requests` for handling files.
 
