@@ -2,3 +2,4 @@ pageindex
 openai
 python-dotenv
 pymupdf
+mermaid-py

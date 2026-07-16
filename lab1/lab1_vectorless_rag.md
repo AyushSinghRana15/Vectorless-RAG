@@ -47,24 +47,18 @@ This is especially useful for:
 flowchart TD
     A(["User asks a question"]) --> B["Submit PDF to PageIndex"]
     B --> C["PageIndex builds hierarchical tree\n(titles + summaries)"]
-    C --> D["Strip full text — keep only\ntitles + summaries"]
-    D --> E["LLM reads tree + question\nand reasons about relevance"]
-    E --> F["LLM picks relevant nodes"]
-    F --> G["Map nodes to page numbers"]
-    G --> H["Extract text from matching\nPDF pages"]
-    H --> I["LLM reads extracted text\nand generates answer"]
-    I --> J(["Final answer"])
+    C --> D["LLM finds relevant nodes from tree"]
+    D --> E["Extract text from relevant pages"]
+    E --> F["LLM generates answer from\ncorrect text"]
+    F --> G(["Final answer"])
 
     style A fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
     style B fill:#f5f5f5,stroke:#616161,color:#212121
     style C fill:#f5f5f5,stroke:#616161,color:#212121
-    style D fill:#f5f5f5,stroke:#616161,color:#212121
-    style E fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style F fill:#f5f5f5,stroke:#616161,color:#212121
-    style G fill:#f5f5f5,stroke:#616161,color:#212121
-    style H fill:#f5f5f5,stroke:#616161,color:#212121
-    style I fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style J fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style D fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style E fill:#f5f5f5,stroke:#616161,color:#212121
+    style F fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
 ### How PageIndex Builds the Tree
@@ -254,6 +248,17 @@ QUERY = "What was the total revenue reported in the earnings release?"
 ## Step 4 — LLM Finds Relevant Sections
 
 The LLM reads the tree (titles + summaries only — no full text) and picks which nodes likely contain the answer.
+
+```mermaid
+flowchart LR
+    A[User Question] --> B[Full Tree]
+    B --> C["Strip 'text' field<br/>utils.remove_fields()"]
+    C --> D["Slim Tree<br/>(node_id + title + summary only)"]
+    D --> E[LLM Analysis]
+    A --> E
+    E --> F["JSON Response<br/>{node_list: [...]}"]
+    F --> G["Relevant Nodes<br/>identified by node_id"]
+```
 
 ### Search the Tree
 
