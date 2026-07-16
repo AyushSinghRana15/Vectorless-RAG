@@ -61,7 +61,7 @@ flowchart TD
     style G fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
 ```
 
-### PageIndex's Reasoning-Based Retrieval Loop
+### How PageIndex Builds the Tree
 
 ```mermaid
 flowchart TD
@@ -88,9 +88,7 @@ flowchart TD
 4. **Recursive splitting** — whichever path found the boundaries, each section then gets recursively broken into child nodes if it's too big, bounded by two caps: max pages per node (default 10) and max tokens per node (default 20,000). This is what keeps a single node from becoming a 40-page dump.
 5. **Node tree** — the output is a JSON tree where every node carries a title, node_id, start_index/end_index (page range), and nested nodes for children. If summaries are enabled (default on), a final pass has the LLM write a short summary per node — that summary is what the retrieval-time LLM actually reads to decide which branch to follow, not the raw text.
 
-### How PageIndex Builds the Tree
-
-PageIndex parses the PDF into a hierarchical tree. The root represents the entire document, middle nodes represent sections/subsections, and leaf nodes represent individual pages. Each node contains a `node_id`, `title`, `description`, and optional `metadata` — forming an **in-context index** that the LLM can reason over during inference.
+The resulting tree structure looks like this:
 
 ```mermaid
 graph TD
@@ -113,11 +111,6 @@ graph TD
     style C1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
     style C2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
 ```
-
-1. The **PageIndex API** parses the PDF into a tree of sections and subsections, each annotated with a title and summary.
-2. The **LLM** receives the tree (without full text) and the user's question. It reasons over titles and summaries to identify which nodes are most likely to contain the answer.
-3. The text from matching PDF pages is **extracted** using PyMuPDF.
-4. The **LLM** answers the question by reading the extracted text — providing accurate, grounded answers.
 
 # 5. Output
 
