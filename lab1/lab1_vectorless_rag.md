@@ -321,7 +321,8 @@ flowchart LR
     A["Relevant Nodes<br/>(from Step 4)"] --> B["Map node_id<br/>→ page numbers"]
     B --> C["Extract text<br/>from PDF pages"]
     C --> D["Build context<br/>(page texts joined)"]
-    D --> E["LLM generates answer<br/>from context + question"]
+    Q["Question"] --> E
+    D --> E["LLM generates answer<br/>(context + question)"]
     E --> F["Final Answer"]
 ```
 
