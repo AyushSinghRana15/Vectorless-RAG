@@ -103,6 +103,14 @@ while not pi_client.is_retrieval_ready(doc_id):
 ```
 This is the step where the PDF is turned into a tree. The document is submitted, and the notebook waits (polling every 5 seconds) until the tree is fully built and ready to be searched.
 
+#### Print the Document Tree
+```python
+tree = pi_client.get_tree(doc_id, node_summary=True)["result"]
+print("Document Tree Structure:")
+utils.print_tree(tree)
+```
+Once the tree is ready, this pretty-prints the actual hierarchical structure PageIndex built from the PDF — every section, sub-section, and table as a node, with a short summary of what each one contains. It's a nice sanity check before running any queries: you can see exactly what the retrieval function will be searching over.
+
 #### Initialize the LLM
 ```python
 llm = ChatGroq(
