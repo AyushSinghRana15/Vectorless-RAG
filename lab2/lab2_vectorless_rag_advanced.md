@@ -192,7 +192,7 @@ def retrieve_from_pageindex(query, doc_id, top_k=3):
 4. For each hop, it pulls out the readable text, the node's ID, and its page number(s) (using a small regex, since PageIndex embeds the page inside a string like `"<physical_index_6>"` rather than as a plain number).
 5. It returns a structured list of hops — each one knowing exactly which section, node, and page it came from.
 
-#### Combine Context and Ask the LLM (With Citations)
+#### Combine Context and Ask the LLM (Direct, Interpreted Answer)
 ```python
 def vectorless_rag(query, doc_id):
     hops = retrieve_from_pageindex(query, doc_id)
@@ -200,17 +200,17 @@ def vectorless_rag(query, doc_id):
     if not hops:
         return "No relevant context found.", [], ""
 
-    labeled_context = "\n\n".join(
-        f"[Hop {h['hop_number']} - {h['section']}]\n{h['text']}" for h in hops
-    )
+    labeled_context = "\n\n".join(h["text"] for h in hops)
 
     prompt = f"""
-You are a financial analyst. Answer the question using ONLY the context below.
+You are a financial analyst. Answer the question below using only the context provided.
+Give a direct, interpreted answer in plain language, the way an analyst would explain it
+to someone in a meeting — not a mechanical calculation. Consider seasonality and other
+relevant signals in the context (like backlog or order trends) rather than just scaling
+one quarter's number by 4.
 
-CRITICAL INSTRUCTIONS:
-- Every fact or number you use MUST be tagged with its hop, like this: [Hop 1]
-- If you use numbers from more than one hop, tag each one separately.
-- If required numbers are missing, say "Not found in document."
+Explicitly state whether the pace is running ahead of, in line with, or behind what
+would be needed to hit the full-year target, accounting for typical seasonal patterns.
 
 Context:
 {labeled_context}
@@ -223,7 +223,9 @@ Question: {query}
 
     return final_answer, hops, labeled_context
 ```
-This ties it together — it calls the hop-by-hop retrieval function, labels each hop clearly in the context (e.g. `[Hop 1 - Section Name]`), and instructs the LLM to tag every fact it uses with the hop it came from. That citation is what later lets us check *which retrieved hops the LLM actually relied on*, not just which ones were retrieved.
+This ties it together — it calls the hop-by-hop retrieval function, concatenates the retrieved text (without hop tags), and asks the LLM for a plain-language, interpreted answer rather than a mechanical calculation. The prompt explicitly steers it away from naive annualization (e.g. multiplying Q1 deliveries by 4) and toward weighing seasonality, backlog, and order trends — then forces a direct verdict on whether the pace is ahead of, in line with, or behind what's needed to hit guidance.
+
+> **Note:** Because the hop tags (`[Hop 1]`, `[Hop 2]`, ...) are no longer in the answer text, the citation-matching step later in the notebook (which scans the final answer for `[Hop N]` patterns) won't find any — every hop will show as "retrieved but NOT used" in the explainability report below, even if it was actually used. This tradeoff is intentional here: it prioritizes a cleaner, more natural-sounding answer over automatic citation tracking.
 
 ---
 
