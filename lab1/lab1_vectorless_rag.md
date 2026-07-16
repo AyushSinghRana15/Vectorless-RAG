@@ -203,6 +203,14 @@ print(f"Extracted text from {len(page_texts)} pages.")
 
 The PageIndex API parses the PDF into a hierarchical tree of sections and subsections, each annotated with a title and summary.
 
+```mermaid
+flowchart LR
+    A[PDF File] --> B["PageIndex API<br/>submit_document()"]
+    B --> C["Poll until ready<br/>is_retrieval_ready()"]
+    C --> D["Get tree<br/>get_tree()"]
+    D --> E["Hierarchical Tree<br/>(titles + summaries)"]
+```
+
 ### Build Document Tree
 
 ```python
@@ -327,6 +335,15 @@ for nid in result.get("node_list", []):
 ## Step 5 — LLM Answers from Extracted Text
 
 Map the retrieved node IDs to page numbers, extract text from those pages, and have the LLM read it to generate the final answer.
+
+```mermaid
+flowchart LR
+    A["Relevant Nodes<br/>(from Step 4)"] --> B["Map node_id<br/>→ page numbers"]
+    B --> C["Extract text<br/>from PDF pages"]
+    C --> D["Build context<br/>(page texts joined)"]
+    D --> E["LLM generates answer<br/>from context + question"]
+    E --> F["Final Answer"]
+```
 
 ### Build Context
 
