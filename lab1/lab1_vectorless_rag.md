@@ -82,7 +82,7 @@ flowchart TD
     style G fill:#fff3e0,stroke:#e65100,color:#bf360c
 ```
 
-1. **PDF pages** — text is pulled out page by page (the open-source version uses standard PDF parsing; PageIndex's hosted API swaps this for enhanced OCR on messier PDFs).
+1. **PDF pages** — text is pulled out page by page (the open-source version uses standard PDF parsing; PageIndex's hosted API swaps this for enhanced OCR (Optical Character Recognition) on messier PDFs).
 2. **TOC check** — it scans roughly the first 20 pages looking for a real table of contents. Insurance policy docs and financial reports often have one; if found, PageIndex parses those entries and maps each title to its actual start/end page in the body.
 3. **Heading detection** — if no TOC exists, an LLM reads through the page text directly and infers section boundaries itself (font-size/indent cues aren't used — it's reasoning over text, similar to how a person skims for headings).
 4. **Recursive splitting** — whichever path found the boundaries, each section then gets recursively broken into child nodes if it's too big, bounded by two caps: max pages per node (default 10) and max tokens per node (default 20,000). This is what keeps a single node from becoming a 40-page dump.
