@@ -92,24 +92,31 @@ The resulting tree structure looks like this:
 
 ```mermaid
 graph TD
-    R["Root: Document Title"] --> A["Section 1: Introduction"]
-    R --> B["Section 2: Financial Results"]
-    R --> C["Section 3: Balance Sheet"]
+    R["Root: Document Title<br/>node_id: 0000"]
 
-    B --> B1["Page 2: Revenue"]
-    B --> B2["Page 3: Net Income"]
+    R --> A["Topic 1: Business Overview<br/>node_id: 0001"]
+    R --> B["Topic 2: Financial Results<br/>node_id: 0002"]
+    R --> C["Topic 3: Risk Factors<br/>node_id: 0003"]
 
-    C --> C1["Page 4: Assets"]
-    C --> C2["Page 5: Equity"]
+    A --> A1["Subtopic 1.1: Company Profile<br/>node_id: 0010"]
+    A --> A2["Subtopic 1.2: Products<br/>node_id: 0011"]
+
+    B --> B1["Subtopic 2.1: Revenue<br/>node_id: 0020"]
+    B --> B2["Subtopic 2.2: Expenses<br/>node_id: 0021"]
+
+    B1 --> B1a["Page 2-3<br/>node_id: 00201"]
+    B1 --> B1b["Page 4<br/>node_id: 00202"]
 
     style R fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style A fill:#f5f5f5,stroke:#616161,color:#212121
-    style B fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style C fill:#f5f5f5,stroke:#616161,color:#212121
-    style B1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style B2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style C1 fill:#fce4ec,stroke:#c62828,color:#b71c1c
-    style C2 fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style A fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style B fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style C fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style A1 fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style A2 fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style B1 fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style B2 fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style B1a fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style B1b fill:#fce4ec,stroke:#c62828,color:#b71c1c
 ```
 
 # 5. Output
