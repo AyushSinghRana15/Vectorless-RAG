@@ -24,7 +24,7 @@ This is especially useful for:
 | Item | Detail |
 |------|--------|
 | **User query** | Natural-language question about a document |
-| **PDF document** | Synthetic Medicare Plus Policy Document (`data/synthetic_medicare_plus_policy_detailed.pdf`) — used for tree generation and text extraction |
+| **PDF document** | NASA ISS Overview Factsheet (`https://www.nasa.gov/pdf/65431main_ffs_factsheets_issoverview.pdf`) — downloaded and used for tree generation and text extraction |
 | **PageIndex API Key** | Used to parse the PDF into a hierarchical tree |
 | **AWS Bedrock Credentials** | Access Key ID, Secret Access Key, Endpoint URL, Region — used to call the LLM |
 
@@ -261,9 +261,23 @@ flowchart LR
 from pageindex import PageIndexClient
 from pageindex import utils
 import time
+import os
+import requests
 
-# Path to the PDF file
-PDF_PATH = "data/synthetic_medicare_plus_policy_detailed.pdf"
+# Download the PDF from URL
+PDF_URL = "https://www.nasa.gov/pdf/65431main_ffs_factsheets_issoverview.pdf"
+PDF_DIR = "data"
+PDF_PATH = os.path.join(PDF_DIR, "iss_overview.pdf")
+
+# Create data directory if it doesn't exist
+os.makedirs(PDF_DIR, exist_ok=True)
+
+# Download the PDF
+response = requests.get(PDF_URL)
+response.raise_for_status()
+with open(PDF_PATH, "wb") as f:
+    f.write(response.content)
+print(f"Downloaded PDF ({len(response.content)} bytes) to {PDF_PATH}")
 
 # Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
@@ -298,7 +312,7 @@ This is a simple but critical step. The `QUERY` variable holds the natural-langu
 The question you ask determines which nodes the LLM will select from the tree. For example, asking about "total revenue" will cause the LLM to look for nodes whose summaries mention financial results, revenue figures, or income statements. Asking about "risk factors" would steer it toward a completely different branch of the tree. This is the power of **reasoning-based retrieval** — the LLM understands the semantics of your question and matches it against the summaries, not against keyword overlaps or vector similarities.
 
 ```python
-QUERY = "What are the covered services under this policy?"
+QUERY = "What is the purpose of the International Space Station?"
 ```
 
 ---
@@ -488,7 +502,7 @@ Challenge yourself to extend or modify this lab:
 
 - Change the LLM from **Amazon Nova Lite** to a different Bedrock model (e.g., `global.anthropic.claude-haiku-4-5-20251001-v1:0` or `global.anthropic.claude-sonnet-4-5-20250929-v1:0`) and compare answer quality.
 - Swap **PageIndex** for a different document parsing approach and observe how the retrieval quality changes.
-- Try modifying the `QUERY` variable with different questions about the MediCare Plus policy (e.g., "What are the premium amounts?", "What is the claims process?", "What are the exclusions?") and verify the answers.
+- Try modifying the `QUERY` variable with different questions about the ISS (e.g., "What are the main modules?", "How is the station powered?", "Who manages the ISS?") and verify the answers.
 
 ---
 
