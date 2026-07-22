@@ -232,8 +232,6 @@ def call_llm(prompt, model="global.amazon.nova-2-lite-v1:0"):
 
 # Step-wise Instructions — Development
 
-> 💡 Each lab should not exceed 100–150 lines of code. If the application is larger, split it into 2 or 3 separate labs.
-
 ---
 
 ### Step 1 — Build Document Tree
