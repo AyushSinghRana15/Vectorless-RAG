@@ -242,7 +242,7 @@ The **PageIndex API** takes a PDF file and builds a **hierarchical tree** of sec
 Here is what happens under the hood:
 
 1. **`submit_document(PDF_PATH)`** — uploads the PDF to PageIndex and returns a `doc_id`. PageIndex begins parsing the document in the background.
-2. **`is_retrieval_ready(doc_id)`** — we poll this until the tree is built. For a small document like our earnings release, this takes 10–30 seconds. For larger documents (50+ pages), it can take a few minutes.
+2. **`is_retrieval_ready(doc_id)`** — we poll this until the tree is built. For a document like our earnings release (41 pages), this typically takes 30–60 seconds. For larger documents (100+ pages), it can take a few minutes.
 3. **`get_tree(doc_id, node_summary=True)`** — retrieves the fully built tree. The `node_summary=True` flag tells PageIndex to generate an LLM-written summary for each node. These summaries are what the retrieval-time LLM reads — not the raw text.
 
 The resulting tree is a nested JSON structure. The **root node** represents the entire document. **Child nodes** represent sections and subsections, each with its own page range and summary. This hierarchical structure lets the LLM narrow down from broad sections to specific pages — without ever embedding a single vector.
