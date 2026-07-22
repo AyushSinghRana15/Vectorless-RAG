@@ -167,12 +167,11 @@ The cell below installs all required Python packages:
 | `langchain-aws` | **Bedrock integration** — `ChatBedrockConverse` wraps the Bedrock Converse API |
 | `langchain-core` | **LangChain primitives** — `HumanMessage`, `AIMessage`, `SystemMessage` |
 | `boto3` | **AWS SDK** — used internally by `langchain-aws` for authentication |
-| `pymupdf` | **Extract text** from PDF pages |
 
 > **Note:** Run this cell first — it only needs to be run once per session.
 
 ```python
-!pip install -q pageindex langchain-aws langchain-core boto3 pymupdf
+!pip install -q pageindex langchain-aws langchain-core boto3
 ```
 
 ## Import Libraries
@@ -182,9 +181,8 @@ Import the standard library and third-party modules used throughout the notebook
 ```python
 import os       # for environment variables
 import json     # for parsing LLM JSON responses
-import pymupdf  # for extracting text from PDF files
 from langchain_aws import ChatBedrockConverse  # LangChain AWS Bedrock client
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage  # typed messages
+from langchain_core.messages import HumanMessage  # typed message objects
 ```
 
 ## Configure AWS Bedrock Credentials
@@ -262,8 +260,6 @@ from pageindex import PageIndexClient
 from pageindex import utils
 import time
 
-PDF_PATH = "data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf"
-
 # Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
 result = pi.submit_document(PDF_PATH)
@@ -290,28 +286,64 @@ utils.print_tree(tree, exclude_fields=["text"])
 
 ### Step 1b — Extract Document Preview (First 1-2 Pages)
 
-This step extracts text from the **first 1-2 pages** of the PDF and stores it in a `document` variable. This preview can be used instead of the full PDF in the vectorless RAG pipeline — useful when you want to work with a smaller subset of the document for testing or when the full PDF is large.
-
-In a traditional RAG pipeline, you would chunk the entire document, embed each chunk, and store them in a vector database. Here, we take a fundamentally different approach: we extract raw text directly from the PDF pages using **PyMuPDF** and store it in a simple string variable. This `document` variable acts as our **text source** — the pipeline will later pull relevant pages from it based on the tree retrieval results.
-
-The key advantage of this approach is simplicity. There is no chunking strategy to tune, no embedding model to configure, and no vector database to maintain. The LLM reads the raw page text directly and generates answers from it. For small-to-medium documents (under 50 pages), this is often faster and more accurate than traditional RAG — because the LLM sees the full context of each page, not artificially split chunks.
+Instead of loading the full PDF at runtime, we hardcode the text from the **first 2 pages** of the earnings release into a `document_text` variable. This keeps the lab self-contained — no file I/O needed at this step — and gives the pipeline a fixed text source to work with.
 
 ```python
-# Extract text from the first 1-2 pages of the PDF
-doc_preview = pymupdf.open(PDF_PATH)
-NUM_PREVIEW_PAGES = min(2, len(doc_preview))  # first 2 pages (or fewer if PDF is shorter)
-document = ""
-for i in range(NUM_PREVIEW_PAGES):
-    document += f"--- Page {i+1} ---\n"
-    document += doc_preview.load_page(i).get_text()
-doc_preview.close()
+document_text = """
+Century Communities Reports First Quarter 2025 Results
 
-print(f"Extracted {NUM_PREVIEW_PAGES} pages into 'document' variable ({len(document)} chars).")
-print("\n--- Document Preview ---")
-print(document[:1000] + "..." if len(document) > 1000 else document)
+- Deliveries of 2,284 Homes Generating $903.2 Million in Total Revenues -
+- Net New Home Contracts of 2,692 -
+- Net Income of $39.4 Million, or $1.26 Per Diluted Share -
+- Adjusted Net Income of $42.2 Million, or $1.36 Per Diluted Share -
+- Community Count Increased 26% YoY to 318 -
+
+Greenwood Village, Colorado (April 23, 2025) - Century Communities, Inc. (NYSE: CCS), one of the nation's largest homebuilders, today announced financial results for its first quarter ended March 31, 2025.
+
+First Quarter 2025 Highlights
+
+- Net income of $39.4 million, or $1.26 per diluted share
+- Adjusted net income of $42.2 million, or $1.36 per diluted share
+- Pre-tax income of $52.5 million
+- Total revenues of $903.2 million
+- Community count of 318
+- Deliveries of 2,284 homes
+- Net new home contracts of 2,692
+- Homebuilding gross margin of 19.9%
+- Adjusted homebuilding gross margin of 21.6%
+- Increased capacity of senior unsecured credit facility to $1.0 billion
+
+"Over the past few months, we have seen an increase in economic uncertainty, interest rate volatility and decline in consumer confidence, which have contributed to a slower than typical spring selling season," said Dale Francescon, Executive Chairman. "During the quarter, we focused on balancing pace with price and managing our costs. Despite the market headwinds, we recorded 2,692 net new home contracts, delivered 2,284 homes and generated a homebuilding gross margin of 20.1% excluding purchase price accounting, which eased by only 80 basis points on a sequential basis."
+
+Rob Francescon, Chief Executive Officer and President, said, "Our community count grew by 26% on a year-over-year basis to 318. Our land pipeline of owned and controlled lots is well positioned to both support our growth plans over the next several years and to mitigate risk, with our controlled lots accounting for 55% of our total lots. Our balance sheet remains strong with $2.6 billion of stockholders' equity and $788 million of liquidity, and our book value per share of $84.41 increased by 11% on a year-over-year basis. In the first quarter, we repurchased 753,337 shares of our common stock for $55.6 million and increased our quarterly cash dividend to $0.29 per share."
+
+First Quarter 2025 Results
+
+Net income for the first quarter 2025 was $39.4 million, or $1.26 per diluted share. Adjusted net income, which excludes inventory impairment, restructuring costs and purchase price accounting, was $42.2 million, or $1.36 per diluted share.
+
+Total revenues were $903.2 million, with first quarter home sales revenues totaling $883.7 million. Deliveries totaled 2,284 homes. The average sales price of home deliveries for the first quarter 2025 was $386,900.
+
+Net new home contracts in the first quarter 2025 were 2,692, and at the end of the first quarter 2025, the Company had 1,258 homes in backlog, representing $521.1 million of backlog dollar value.
+
+Adjusted homebuilding gross margin percentage, excluding interest, inventory impairment and purchase price accounting, was 21.6% in the first quarter of 2025. Homebuilding gross margin percentage in the first quarter 2025 was 19.9%. Selling, general, and administrative expenses as a percent of home sales revenues was 13.7% in the quarter. Adjusted EBITDA and EBITDA for the first quarter 2025 were $76.3 million and $72.5 million, respectively.
+
+Financial services revenues and pre-tax income were $18.5 million and $2.4 million, respectively, in the first quarter 2025.
+
+Balance Sheet and Liquidity
+
+The Company ended the first quarter 2025 with a strong financial position, including $2.6 billion of stockholders' equity and $787.5 million of total liquidity, including $124.5 million of cash. Additionally, subsequent to quarter end, the Company increased the capacity of its senior unsecured credit facility to $1.0 billion from $900.0 million.
+
+Our book value per share was $84.41 as of March 31, 2025.
+
+During the first quarter, consistent with our disciplined capital allocation approach to enhance the long-term value of the Company and return capital to our shareholders, the quarterly cash dividend was increased by 12% to $0.29 per share and 753,337 shares of common stock were repurchased for $55.6 million.
+
+As of March 31, 2025, homebuilding debt to capital equaled 32.4% compared to 30.3% at December 31, 2024 and net homebuilding debt to net capital equaled to 30.1% compared to 27.4% at December 31, 2024.
+"""
+
+print(f"Document loaded. Total characters: {len(document_text)}")
+print("-" * 50)
+print(document_text[:300], "...")
 ```
-
-> **Note:** The `document` variable now holds the first 1-2 pages of text. You can use this variable in place of the full PDF for quick prototyping or when you want to limit the context passed to the LLM.
 
 ---
 
@@ -435,7 +467,7 @@ This is where everything comes together. We take the **node IDs** the LLM select
 Here is exactly what happens:
 
 1. **Map node IDs to pages** — Each node in the tree has a `start_index` and `end_index` representing its page range. We use `utils.create_node_mapping()` to build a lookup table that maps node IDs to their page ranges. This is the bridge between the tree structure and the actual PDF pages.
-2. **Extract text from pages** — We use the `document` variable (extracted in Step 1b) which already contains text from the first 1-2 pages. We package it into a `page_texts` dictionary so the context-building code can reference it by page number.
+2. **Extract text from pages** — We use the `document_text` variable (defined in Step 1b) which already contains text from the first 2 pages. We package it into a `page_texts` dictionary so the context-building code can reference it by page number.
 3. **Build context** — We loop through the selected node IDs, look up their page ranges, and collect the text from each page. We deduplicate pages (in case multiple nodes overlap) and join everything into a single `context` string. This context contains only the relevant text — not the entire document.
 4. **Generate the answer** — We send the context and the original question to the LLM. The prompt explicitly tells the LLM to answer only from the provided context and to say "I don't know" if the answer is not there. This prevents hallucination and keeps the answer grounded in the actual document content.
 
@@ -453,13 +485,13 @@ flowchart LR
 
 #### Extract Text from PDF
 
-Use the `document` variable (extracted in Step 1b) instead of re-opening the full PDF. This keeps the pipeline working with the **first 1-2 pages** only.
+Use the `document_text` variable (defined in Step 1b) instead of re-opening the full PDF. This keeps the pipeline working with the **first 2 pages** only.
 
 ```python
-# Use the document variable from Step 1b instead of extracting from the full PDF
-# document already contains text from the first 1-2 pages
-page_texts = {1: document}  # single "page" holding the preview text
-print(f"Using document preview ({len(document)} chars).")
+# Use the document_text variable from Step 1b instead of extracting from the full PDF
+# document_text already contains text from the first 2 pages
+page_texts = {1: document_text}  # single "page" holding the preview text
+print(f"Using document preview ({len(document_text)} chars).")
 ```
 
 #### Build Context
