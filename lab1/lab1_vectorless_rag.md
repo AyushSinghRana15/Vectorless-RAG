@@ -26,7 +26,7 @@ This is especially useful for:
 | **User query** | Natural-language question about a PDF document |
 | **PDF document** | CCS Q1 2025 Earnings Release 8-K (`data/CCS 3.31.25 Earnings Release 8-K Exhibit 99.1.pdf`) |
 | **PageIndex API Key** | Used to parse the PDF into a hierarchical tree |
-| **OpenRouter API Key** | Used to call the Language Model (Llama 4 Scout) |
+| **AWS Bedrock Credentials** | Access Key ID, Secret Access Key, Endpoint URL, Region — used to call the LLM |
 
 ---
 
@@ -126,9 +126,9 @@ A natural-language answer grounded in the extracted text, e.g.:
 |---|---|
 | **Document Parsing** | PageIndex API — builds hierarchical tree from PDF |
 | **Text Extraction** | PyMuPDF — extracts raw text from PDF pages |
-| **LLM** | Llama 4 Scout (via OpenRouter) — finds relevant sections and generates answers |
-| **LLM Client** | OpenAI SDK — OpenAI-compatible client for OpenRouter |
-| **Environment** | python-dotenv — loads API keys from `.env` file |
+| **LLM** | Amazon Nova Lite v1 (via AWS Bedrock + LangChain) — finds relevant sections and generates answers |
+| **LLM Framework** | LangChain (`langchain-aws`, `langchain-core`) — typed messages and Bedrock integration |
+| **Environment** | Environment variables — AWS credentials set via `os.environ` |
 
 ---
 
@@ -151,7 +151,7 @@ Traditional RAG pipelines embed text chunks into a vector database and retrieve 
 
 - **Basic familiarity** with Python (functions, `import` statements).
 - **PageIndex API Key** — sign up at [pageindex.ai](https://pageindex.ai).
-- **OpenRouter API Key** — sign up at [openrouter.ai](https://openrouter.ai).
+- **AWS Bedrock Credentials** — Access Key ID, Secret Access Key, Endpoint URL, and Region (from the lab platform key icon).
 - **High-level understanding** of what an LLM is and what a "context window" means.
 - (Optional) Awareness of traditional RAG pipelines (embeddings, vector stores).
 
@@ -164,66 +164,71 @@ The cell below installs all required Python packages:
 | Package | Purpose |
 |---------|---------|
 | `pageindex` | **Document tree generation** and retrieval via PageIndex API |
-| `openai` | **LLM client** (used with OpenRouter's OpenAI-compatible endpoint) |
-| `python-dotenv` | **Load API keys** from `.env` file |
+| `langchain-aws` | **Bedrock integration** — `ChatBedrockConverse` wraps the Bedrock Converse API |
+| `langchain-core` | **LangChain primitives** — `HumanMessage`, `AIMessage`, `SystemMessage` |
+| `boto3` | **AWS SDK** — used internally by `langchain-aws` for authentication |
 | `pymupdf` | **Extract text** from PDF pages |
 
 > **Note:** Run this cell first — it only needs to be run once per session.
 
 ```python
-!pip install -q pageindex openai python-dotenv pymupdf
+!pip install -q pageindex langchain-aws langchain-core boto3 pymupdf
 ```
 
 ## Import Libraries
 
-Import the standard library and third-party modules used throughout the notebook. **`os`** and **`json`** handle file paths and caching. **`re`** parses JSON from LLM responses. **`pymupdf`** extracts text from PDFs. **`OpenAI`** is the LLM client. **`load_dotenv`** loads API keys from the `.env` file.
+Import the standard library and third-party modules used throughout the notebook. **`os`** and **`json`** handle file paths and caching. **`re`** parses JSON from LLM responses. **`pymupdf`** extracts text from PDFs. **`ChatBedrockConverse`** is the LangChain LLM client for AWS Bedrock. **`HumanMessage`**, **`AIMessage`**, **`SystemMessage`** are LangChain typed message objects.
 
 ```python
 import os       # for environment variables
 import json     # for parsing LLM JSON responses
 import pymupdf  # for extracting text from PDF files
-from openai import OpenAI  # OpenAI-compatible client (works with OpenRouter)
-from dotenv import load_dotenv  # loads API keys from .env file
+from langchain_aws import ChatBedrockConverse  # LangChain AWS Bedrock client
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage  # typed messages
 ```
 
-## Load API Keys
+## Configure AWS Bedrock Credentials
 
-Load API keys from the `.env` file in the project root (`../.env` relative to this notebook). The `.env` file should contain **`PAGEINDEX_API_KEY`** and **`OPENROUTER_API_KEY`**. If either key is missing, you'll be prompted to enter it manually.
+Set the four AWS Bedrock credentials as environment variables. These give you access to the Bedrock Converse API via the lab proxy. Copy all four values from the key icon on your lab platform.
 
 ```python
-load_dotenv("../.env")
+os.environ["AWS_ACCESS_KEY_ID"]     = "YOUR_ACCESS_KEY_ID"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "YOUR_SECRET_ACCESS_KEY"
+os.environ["AWS_ENDPOINT_URL"]      = "https://api.enterprisesi.co/api/v1/aws-genai/bedrock-runtime"
+os.environ["AWS_REGION"]            = "ap-south-1"
 
+print("Credentials configured.")
+```
+
+## Load PageIndex API Key
+
+```python
 PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# If keys are missing, prompt the user to enter them
 if not PAGEINDEX_API_KEY:
     PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
-if not OPENROUTER_API_KEY:
-    OPENROUTER_API_KEY = input("Enter your OpenRouter API key (get one at https://openrouter.ai): ").strip()
 
-print("Keys loaded.")
+print("PageIndex key loaded.")
 ```
 
 ## Set Up the LLM
 
 ### `call_llm(prompt, model)`
 
-Sends a prompt to the LLM via OpenRouter and returns the response text. Creates a fresh **OpenAI client** pointed at OpenRouter's API endpoint (`https://openrouter.ai/api/v1`). Uses `meta-llama/llama-4-scout-17b-16e-instruct` by default with **`temperature=0`** for deterministic output.
+Sends a prompt to the LLM via AWS Bedrock and returns the response text. Uses LangChain's **`ChatBedrockConverse`** which wraps the Bedrock Converse API and handles authentication via the environment variables set above. Uses **Amazon Nova Lite v1** (`global.amazon.nova-2-lite-v1:0`) by default with **`temperature=0`** for deterministic output.
 
 ```python
-# Calls an LLM via OpenRouter's OpenAI-compatible API
-# - prompt: the text to send to the model
-# - model: which model to use (default is free tier)
-def call_llm(prompt, model="nvidia/nemotron-3-ultra-550b-a55b:free"):
-    # Create OpenAI-compatible client pointed at OpenRouter
-    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
-    return client.chat.completions.create(
+# Default model — Amazon Nova Lite v1 (fast, cost-effective for retrieval + QA)
+DEFAULT_MODEL = "global.amazon.nova-2-lite-v1:0"
+
+def call_llm(prompt, model=DEFAULT_MODEL):
+    llm = ChatBedrockConverse(
         model=model,
-        messages=[{"role": "user", "content": prompt}],  # single user message
-        temperature=0,   # deterministic output (no randomness)
-        max_tokens=512  # cap response length
-    ).choices[0].message.content.strip()
+        temperature=0,
+        max_tokens=512,
+    )
+    response = llm.invoke([HumanMessage(content=prompt)])
+    return response.content.strip()
 ```
 
 > 📝 **Note on Credentials:** To use the credentials, click the key icon on the top right corner of the platform. Copy the API Key and Endpoint URL (also copy the Secret Key if using the Claude model).
@@ -515,7 +520,7 @@ print(answer)
 
 Challenge yourself to extend or modify this lab:
 
-- Change the LLM from **Llama 4 Scout** to a different model available on OpenRouter (e.g., GPT-4o, Claude 3.5 Sonnet) and compare answer quality.
+- Change the LLM from **Amazon Nova Lite** to a different Bedrock model (e.g., `global.anthropic.claude-haiku-4-5-20251001-v1:0` or `global.anthropic.claude-sonnet-4-5-20250929-v1:0`) and compare answer quality.
 - Swap **PageIndex** for a different document parsing approach (e.g., direct PyMuPDF extraction with manual section splitting) and observe how the retrieval quality changes.
 - Try extracting text from **more pages** (e.g., 5 or all pages) in Step 1b and see how it affects the final answer.
 
