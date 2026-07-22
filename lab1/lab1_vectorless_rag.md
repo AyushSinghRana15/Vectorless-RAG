@@ -24,7 +24,7 @@ This is especially useful for:
 | Item | Detail |
 |------|--------|
 | **User query** | Natural-language question about a document |
-| **PDF document** | Century Communities Q1 2025 Earnings Release (`data/CCS_Q1_2025_Earnings.pdf`) — used for tree generation and text extraction |
+| **PDF document** | Synthetic Medicare Plus Policy Document (`data/synthetic_medicare_plus_policy_detailed.pdf`) — used for tree generation and text extraction |
 | **PageIndex API Key** | Used to parse the PDF into a hierarchical tree |
 | **AWS Bedrock Credentials** | Access Key ID, Secret Access Key, Endpoint URL, Region — used to call the LLM |
 
@@ -262,7 +262,7 @@ from pageindex import utils
 import time
 
 # Path to the PDF file
-PDF_PATH = "data/CCS_Q1_2025_Earnings.pdf"
+PDF_PATH = "data/synthetic_medicare_plus_policy_detailed.pdf"
 
 # Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
