@@ -286,7 +286,9 @@ utils.print_tree(tree, exclude_fields=["text"])
 
 ### Step 1b — Extract Document Preview (First 1-2 Pages)
 
-Instead of loading the full PDF at runtime, we hardcode the text from the **first 2 pages** of the earnings release into a `document_text` variable. This keeps the lab self-contained — no file I/O needed at this step — and gives the pipeline a fixed text source to work with.
+The `document_text` variable below contains the **first 2 pages** of a real earnings release from **Century Communities, Inc. (NYSE: CCS)** — a large US homebuilder. The document reports Q1 2025 financial results including revenue ($903.2M), net income ($39.4M), home deliveries (2,284), and management commentary on market conditions.
+
+We have kept it short (2 pages) on purpose. A smaller document makes it easier to follow the pipeline step by step — you can read the entire text, see exactly what the LLM sees, and verify that the retrieval and answer generation work correctly. In production, the same pipeline scales to 50+ page documents without any code changes — only the tree gets deeper and the context window fills up more.
 
 ```python
 document_text = """
