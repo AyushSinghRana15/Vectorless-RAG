@@ -297,7 +297,7 @@ This is a simple but critical step. The `QUERY` variable holds the natural-langu
 The question you ask determines which nodes the LLM will select from the tree. For example, asking about "total revenue" will cause the LLM to look for nodes whose summaries mention financial results, revenue figures, or income statements. Asking about "risk factors" would steer it toward a completely different branch of the tree. This is the power of **reasoning-based retrieval** — the LLM understands the semantics of your question and matches it against the summaries, not against keyword overlaps or vector similarities.
 
 ```python
-QUERY = "What was the total revenue reported in the earnings release?"
+QUERY = "What are the eligibility requirements for Medicare Part B coverage?"
 ```
 
 ---
@@ -487,7 +487,7 @@ Challenge yourself to extend or modify this lab:
 
 - Change the LLM from **Amazon Nova Lite** to a different Bedrock model (e.g., `global.anthropic.claude-haiku-4-5-20251001-v1:0` or `global.anthropic.claude-sonnet-4-5-20250929-v1:0`) and compare answer quality.
 - Swap **PageIndex** for a different document parsing approach and observe how the retrieval quality changes.
-- Try modifying the `QUERY` variable with different questions about the earnings release (e.g., "What was the gross margin?", "How many homes were delivered?") and verify the answers.
+- Try modifying the `QUERY` variable with different questions about the Medicare policy (e.g., "What is the late enrollment penalty?", "What services are covered?", "What are the premium amounts?") and verify the answers.
 
 ---
 
