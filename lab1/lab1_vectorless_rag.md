@@ -284,7 +284,7 @@ utils.print_tree(tree, exclude_fields=["text"])
 
 ---
 
-### Step 1b — Extract Document Preview (First 1-2 Pages)
+### Step 1b — Load the Sample Document
 
 For this lab, we use a short in-memory document — the first 2 pages of a real earnings release from **Century Communities, Inc. (NYSE: CCS)**. It reports Q1 2025 financial results including revenue ($903.2M), net income ($39.4M), home deliveries (2,284), and management commentary on market conditions. In a real-world scenario, you'd load a full PDF, web page, or database of documents.
 
