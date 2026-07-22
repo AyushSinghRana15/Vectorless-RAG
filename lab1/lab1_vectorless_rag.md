@@ -286,9 +286,9 @@ utils.print_tree(tree, exclude_fields=["text"])
 
 ### Step 1b — Extract Document Preview (First 1-2 Pages)
 
-The `document_text` variable below contains the **first 2 pages** of a real earnings release from **Century Communities, Inc. (NYSE: CCS)** — a large US homebuilder. The document reports Q1 2025 financial results including revenue ($903.2M), net income ($39.4M), home deliveries (2,284), and management commentary on market conditions.
+For this lab, we use a short in-memory document — the first 2 pages of a real earnings release from **Century Communities, Inc. (NYSE: CCS)**. It reports Q1 2025 financial results including revenue ($903.2M), net income ($39.4M), home deliveries (2,284), and management commentary on market conditions. In a real-world scenario, you'd load a full PDF, web page, or database of documents.
 
-We have kept it short (2 pages) on purpose. A smaller document makes it easier to follow the pipeline step by step — you can read the entire text, see exactly what the LLM sees, and verify that the retrieval and answer generation work correctly. In production, the same pipeline scales to 50+ page documents without any code changes — only the tree gets deeper and the context window fills up more.
+We keep it short and focused so you can clearly see how the tree retrieval and answer generation work end to end — you can read the entire text, verify what the LLM sees, and trace every decision it makes. The same pipeline scales to 50+ page documents without any code changes.
 
 ```python
 document_text = """
