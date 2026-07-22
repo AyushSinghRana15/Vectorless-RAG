@@ -203,10 +203,7 @@ print("Credentials configured.")
 ## Load PageIndex API Key
 
 ```python
-PAGEINDEX_API_KEY = os.getenv("PAGEINDEX_API_KEY")
-
-if not PAGEINDEX_API_KEY:
-    PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
+PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
 
 print("PageIndex key loaded.")
 ```
