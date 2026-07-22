@@ -182,6 +182,7 @@ Import the standard library and third-party modules used throughout the notebook
 ```python
 import os       # for environment variables
 import json     # for parsing LLM JSON responses
+import pymupdf  # for PDF text extraction
 from langchain_aws import ChatBedrockConverse  # LangChain AWS Bedrock client
 from langchain_core.messages import HumanMessage  # typed message objects
 ```
