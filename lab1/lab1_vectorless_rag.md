@@ -384,7 +384,7 @@ The LLM returns **node IDs** (e.g. `0000`, `0001`), but we need to know which **
 
 ```python
 # Map node IDs to their metadata (title, page range, etc.)
-node_map = utils.create_node_mapping(tree, include_page_ranges=True, max_page=len(page_texts))
+node_map = utils.create_node_mapping(tree, include_page_ranges=True)
 
 # Display the LLM's reasoning and which nodes it selected
 print("\nReasoning:", result.get("thinking", ""), "\n")
