@@ -1,5 +1,7 @@
 # Vectorless RAG: Reasoning-Based Retrieval without Embeddings
 
+> **Vectorless RAG** is a retrieval-augmented generation approach that replaces embedding models and vector databases with LLM-based reasoning. Instead of encoding text into vectors and searching via cosine similarity, the LLM reads a hierarchical tree of document titles and summaries to identify relevant sections, then reads extracted text from those pages to generate answers.
+
 ---
 
 # Problem Statement / Use Case Overview
