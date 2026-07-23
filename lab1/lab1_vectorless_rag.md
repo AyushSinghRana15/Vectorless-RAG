@@ -267,6 +267,24 @@ print(f"Downloaded PDF ({len(response.content)} bytes) to {PDF_PATH}")
 
 #### Build Document Tree
 
+The **PageIndex API** takes a PDF file and builds a **hierarchical tree** of sections and subsections. Each node in the tree carries a **title**, a **node_id**, a **page range**, and — crucially — a **summary** written by an LLM. These summaries are what make "vectorless" retrieval possible: instead of embedding text chunks into a vector database, the LLM at query time reads these summaries and **reasons** about which sections are relevant.
+
+Here is what happens under the hood:
+
+1. **`submit_document(PDF_PATH)`** — uploads the PDF to PageIndex and returns a `doc_id`. PageIndex begins parsing the document in the background.
+2. **`is_retrieval_ready(doc_id)`** — we poll this until the tree is built. For a document like our ISS factsheet (2 pages), this typically takes 5–15 seconds. For larger documents (100+ pages), it can take a few minutes.
+3. **`get_tree(doc_id, node_summary=True)`** — retrieves the fully built tree. The `node_summary=True` flag tells PageIndex to generate an LLM-written summary for each node. These summaries are what the retrieval-time LLM reads — not the raw text.
+
+The resulting tree is a nested JSON structure. The **root node** represents the entire document. **Child nodes** represent sections and subsections, each with its own page range and summary. This hierarchical structure lets the LLM narrow down from broad sections to specific pages — without ever embedding a single vector.
+
+```mermaid
+flowchart LR
+    A["PDF File"] --> B["PageIndex API<br/>submit_document()"]
+    B --> C["Poll until ready<br/>is_retrieval_ready()"]
+    C --> D["Get tree<br/>get_tree()"]
+    D --> E["Hierarchical Tree<br/>(titles + summaries)"]
+```
+
 ```python
 # Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
@@ -288,24 +306,6 @@ else:
 # Retrieve the hierarchical tree (titles + summaries, no full text)
 tree = pi.get_tree(doc_id, node_summary=True)["result"]
 utils.print_tree(tree, exclude_fields=["text"])
-```
-
-The **PageIndex API** takes a PDF file and builds a **hierarchical tree** of sections and subsections. Each node in the tree carries a **title**, a **node_id**, a **page range**, and — crucially — a **summary** written by an LLM. These summaries are what make "vectorless" retrieval possible: instead of embedding text chunks into a vector database, the LLM at query time reads these summaries and **reasons** about which sections are relevant.
-
-Here is what happens under the hood:
-
-1. **`submit_document(PDF_PATH)`** — uploads the PDF to PageIndex and returns a `doc_id`. PageIndex begins parsing the document in the background.
-2. **`is_retrieval_ready(doc_id)`** — we poll this until the tree is built. For a document like our ISS factsheet (2 pages), this typically takes 5–15 seconds. For larger documents (100+ pages), it can take a few minutes.
-3. **`get_tree(doc_id, node_summary=True)`** — retrieves the fully built tree. The `node_summary=True` flag tells PageIndex to generate an LLM-written summary for each node. These summaries are what the retrieval-time LLM reads — not the raw text.
-
-The resulting tree is a nested JSON structure. The **root node** represents the entire document. **Child nodes** represent sections and subsections, each with its own page range and summary. This hierarchical structure lets the LLM narrow down from broad sections to specific pages — without ever embedding a single vector.
-
-```mermaid
-flowchart LR
-    A["PDF File"] --> B["PageIndex API<br/>submit_document()"]
-    B --> C["Poll until ready<br/>is_retrieval_ready()"]
-    C --> D["Get tree<br/>get_tree()"]
-    D --> E["Hierarchical Tree<br/>(titles + summaries)"]
 ```
 
 ---
