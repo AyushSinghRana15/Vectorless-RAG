@@ -177,12 +177,16 @@ The cell below installs all required Python packages:
 
 ## Import Libraries
 
-Import the standard library and third-party modules used throughout the notebook. **`os`** and **`json`** handle file paths and caching. **`re`** parses JSON from LLM responses. **`pymupdf`** extracts text from PDFs. **`ChatBedrockConverse`** is the LangChain LLM client for AWS Bedrock. **`HumanMessage`**, **`AIMessage`**, **`SystemMessage`** are LangChain typed message objects.
+Import the standard library and third-party modules used throughout the notebook. **`os`** and **`json`** handle file paths and caching. **`time`** and **`requests`** handle polling and downloading. **`pymupdf`** extracts text from PDFs. **`PageIndexClient`** and **`utils`** are the PageIndex SDK for document tree generation. **`ChatBedrockConverse`** is the LangChain LLM client for AWS Bedrock. **`HumanMessage`** is a LangChain typed message object.
 
 ```python
 import os       # for environment variables
 import json     # for parsing LLM JSON responses
+import time     # for polling
+import requests # for downloading PDF
 import pymupdf  # for PDF text extraction
+from pageindex import PageIndexClient  # PageIndex API client
+from pageindex import utils            # PageIndex utilities
 from langchain_aws import ChatBedrockConverse  # LangChain AWS Bedrock client
 from langchain_core.messages import HumanMessage  # typed message objects
 ```
@@ -245,9 +249,6 @@ This is the foundation of the entire Vectorless RAG pipeline. Before we can retr
 First, we download the PDF document from a URL and save it locally. This cell fetches the NASA ISS Overview Factsheet, creates a `data/` directory if needed, and writes the file to disk. The extracted path (`PDF_PATH`) will be used by PageIndex in the next cell.
 
 ```python
-import os
-import requests
-
 # Download the PDF from URL
 PDF_URL = "https://www.nasa.gov/pdf/65431main_ffs_factsheets_issoverview.pdf"
 PDF_DIR = "data"
@@ -267,10 +268,6 @@ print(f"Downloaded PDF ({len(response.content)} bytes) to {PDF_PATH}")
 #### Build Document Tree
 
 ```python
-import time
-from pageindex import PageIndexClient
-from pageindex import utils
-
 # Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
 result = pi.submit_document(PDF_PATH)
