@@ -458,12 +458,12 @@ for nid in result.get("node_list", []):
     if nid not in node_map:
         continue
     info = node_map[nid]
-    # Loop through each page in the node's range
-    for p in range(info["start_index"], info["end_index"] + 1):
-        # Only add if we haven't seen this page and it has text
-        if p not in seen and p in page_texts:
-            texts.append(f"--- Page {p} ---\n{page_texts[p]}")
-            seen.add(p)
+    page = info["node"].get("page_index")
+    if page is None or page not in page_texts:
+        continue
+    if page not in seen:
+        texts.append(f"--- Page {page} ---\n{page_texts[page]}")
+        seen.add(page)
 # Join all extracted text into one context string
 context = "\n\n".join(texts)
 print(f"Using {len(context.splitlines())} lines of text.")
