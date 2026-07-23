@@ -280,7 +280,11 @@ response.raise_for_status()
 with open(PDF_PATH, "wb") as f:
     f.write(response.content)
 print(f"Downloaded PDF ({len(response.content)} bytes) to {PDF_PATH}")
+```
 
+### Build Document Tree
+
+```python
 # Submit PDF to PageIndex for tree generation
 pi = PageIndexClient(api_key=PAGEINDEX_API_KEY)
 result = pi.submit_document(PDF_PATH)
