@@ -29,6 +29,7 @@ This is especially useful for:
 | **PDF document** | NASA ISS Overview Factsheet (`https://www.nasa.gov/pdf/65431main_ffs_factsheets_issoverview.pdf`) — downloaded and used for tree generation and text extraction |
 | **PageIndex API Key** | Used to parse the PDF into a hierarchical tree |
 | **AWS Bedrock Credentials** | Access Key ID, Secret Access Key, Endpoint URL, Region — used to call the LLM |
+| **Azure OpenAI Credentials** *(alternative)* | API Key, Endpoint URL, Deployment name, API Version — used to call the LLM via Azure OpenAI |
 
 ---
 
@@ -129,8 +130,9 @@ A natural-language answer grounded in the extracted text, e.g.:
 | **Document Parsing** | PageIndex API — builds hierarchical tree from PDF |
 | **Text Extraction** | PyMuPDF — extracts raw text from PDF pages |
 | **LLM** | Amazon Nova Lite v1 (via AWS Bedrock + LangChain) — finds relevant sections and generates answers |
-| **LLM Framework** | LangChain (`langchain-aws`, `langchain-core`) — typed messages and Bedrock integration |
-| **Environment** | Environment variables — AWS credentials set via `os.environ` |
+| **LLM** *(alternative)* | GPT-5-mini (via Azure OpenAI + LangChain) — same role, different provider |
+| **LLM Framework** | LangChain (`langchain-aws`, `langchain-openai`, `langchain-core`) — typed messages and provider integration |
+| **Environment** | Environment variables — AWS or Azure credentials set via `os.environ` |
 
 ---
 
@@ -154,6 +156,7 @@ Traditional RAG pipelines embed text chunks into a vector database and retrieve 
 - **Basic familiarity** with Python (functions, `import` statements).
 - **PageIndex API Key** — sign up at [pageindex.ai](https://pageindex.ai).
 - **AWS Bedrock Credentials** — Access Key ID, Secret Access Key, Endpoint URL, and Region (from the lab platform key icon).
+- *(Alternative)* **Azure OpenAI Credentials** — API Key, Endpoint URL, Deployment name, and API Version.
 - **High-level understanding** of what an LLM is and what a "context window" means.
 - (Optional) Awareness of traditional RAG pipelines (embeddings, vector stores).
 
@@ -168,13 +171,14 @@ The cell below installs all required Python packages:
 | `pageindex` | **Document tree generation** and retrieval via PageIndex API |
 | `pymupdf` | **Text extraction** — extracts raw text from PDF pages |
 | `langchain-aws` | **Bedrock integration** — `ChatBedrockConverse` wraps the Bedrock Converse API |
+| `langchain-openai` | **Azure OpenAI integration** — `ChatOpenAI` wraps the Azure OpenAI API (alternative to Bedrock) |
 | `langchain-core` | **LangChain primitives** — `HumanMessage`, `AIMessage`, `SystemMessage` |
 | `boto3` | **AWS SDK** — used internally by `langchain-aws` for authentication |
 
 > **Note:** Run this cell first — it only needs to be run once per session.
 
 ```python
-!pip install -q pageindex pymupdf langchain-aws langchain-core boto3
+!pip install -q pageindex pymupdf langchain-aws langchain-core langchain-openai boto3
 ```
 
 ## Import Libraries
@@ -191,6 +195,7 @@ from pageindex import PageIndexClient  # PageIndex API client
 from pageindex import utils            # PageIndex utilities
 from langchain_aws import ChatBedrockConverse  # LangChain AWS Bedrock client
 from langchain_core.messages import HumanMessage  # typed message objects
+# from langchain_openai import ChatOpenAI  # LangChain Azure OpenAI client (uncomment for Azure)
 ```
 
 ## Configure AWS Bedrock Credentials
@@ -202,6 +207,21 @@ os.environ["AWS_ACCESS_KEY_ID"]     = "YOUR_ACCESS_KEY_ID"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "YOUR_SECRET_ACCESS_KEY"
 os.environ["AWS_ENDPOINT_URL"]      = "https://api.enterprisesi.co/api/v1/aws-genai/bedrock-runtime"
 os.environ["AWS_REGION"]            = "ap-south-1"
+
+print("Credentials configured.")
+```
+
+## Configure Azure OpenAI Credentials (Alternative)
+
+As an alternative to AWS Bedrock, you can use Azure OpenAI. Set the Azure OpenAI credentials as environment variables below. Use either AWS **or** Azure — not both at the same time.
+
+```python
+os.environ["AZURE_OPENAI_API_KEY"]      = "Your_Api_Key"
+os.environ["AZURE_OPENAI_ENDPOINT"]      = "Your_Endpoint_Url"
+os.environ["AZURE_OPENAI_DEPLOYMENT"]    = "gpt-5-mini"
+os.environ["AZURE_OPENAI_API_VERSION"]   = "2025-08-07"
+os.environ["AZURE_EMBEDDING_DEPLOYMENT"] = "text-embedding-3-small"
+os.environ["AZURE_EMBEDDING_API_VERSION"] = "2023-05-15"
 
 print("Credentials configured.")
 ```
@@ -221,15 +241,31 @@ print("PageIndex key loaded.")
 
 ### `call_llm(prompt, model)`
 
-This cell defines a reusable function that sends a prompt to the LLM via AWS Bedrock and returns the response text. It uses LangChain's **`ChatBedrockConverse`** which wraps the Bedrock Converse API and handles authentication via the environment variables set above. It uses **Amazon Nova Lite v1** (`global.amazon.nova-2-lite-v1:0`) by default with **`temperature=0`** for deterministic output.
+This cell defines a reusable function that sends a prompt to the LLM and returns the response text. By default it uses LangChain's **`ChatBedrockConverse`** with **Amazon Nova Lite v1** (`global.amazon.nova-2-lite-v1:0`) and **`temperature=0`** for deterministic output.
+
+An **Azure OpenAI** alternative using `ChatOpenAI` with `gpt-5-mini` is included as commented code — uncomment the Azure section and comment out the AWS section to switch providers.
 
 ```python
 def call_llm(prompt, model="global.amazon.nova-2-lite-v1:0"):
+    # --- AWS Bedrock (default) ---
     llm = ChatBedrockConverse(
         model=model,
         temperature=0,
         max_tokens=512,
     )
+
+    # --- Azure OpenAI (alternative) ---
+    # Uncomment below and comment out AWS section above to use Azure
+    # from langchain_openai import ChatOpenAI
+    # llm = ChatOpenAI(
+    #     deployment_name=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini"),
+    #     openai_api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+    #     openai_api_base=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+    #     openai_api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2025-08-07"),
+    #     temperature=0,
+    #     max_tokens=512,
+    # )
+
     response = llm.invoke([HumanMessage(content=prompt)])
     return response.content.strip()
 ```
