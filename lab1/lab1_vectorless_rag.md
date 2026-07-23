@@ -83,20 +83,20 @@ The resulting tree structure looks like this:
 
 ```mermaid
 graph TD
-    R["Root: Document Title<br/>node_id: 0000"]
+    R["Root: ISS Overview Factsheet<br/>node_id: 0000"]
 
-    R --> A["Topic 1: Business Overview<br/>node_id: 0001"]
-    R --> B["Topic 2: Financial Results<br/>node_id: 0002"]
-    R --> C["Topic 3: Risk Factors<br/>node_id: 0003"]
+    R --> A["Topic 1: Purpose & Mission<br/>node_id: 0001"]
+    R --> B["Topic 2: Station Assembly<br/>node_id: 0002"]
+    R --> C["Topic 3: Research & Science<br/>node_id: 0003"]
 
-    A --> A1["Subtopic 1.1: Company Profile<br/>node_id: 0010"]
-    A --> A2["Subtopic 1.2: Products<br/>node_id: 0011"]
+    A --> A1["Subtopic 1.1: International Partners<br/>node_id: 0010"]
+    A --> A2["Subtopic 1.2: Crew Operations<br/>node_id: 0011"]
 
-    B --> B1["Subtopic 2.1: Revenue<br/>node_id: 0020"]
-    B --> B2["Subtopic 2.2: Expenses<br/>node_id: 0021"]
+    B --> B1["Subtopic 2.1: Module Overview<br/>node_id: 0020"]
+    B --> B2["Subtopic 2.2: Assembly Sequence<br/>node_id: 0021"]
 
-    B1 --> B1a["Page 2-3<br/>node_id: 00201"]
-    B1 --> B1b["Page 4<br/>node_id: 00202"]
+    B1 --> B1a["Pages 2-3<br/>node_id: 00201"]
+    B1 --> B1b["Pages 4-5<br/>node_id: 00202"]
 
     style R fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
     style A fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
@@ -116,7 +116,7 @@ graph TD
 
 A natural-language answer grounded in the extracted text, e.g.:
 
-> _"The total revenues for Q1 2025 were $XXX million, as reported in the earnings release."_
+> _"The International Space Station serves as a microgravity and space environment research laboratory where scientific research is conducted in astrobiology, astronomy, physical science, and Earth science."_
 
 ---
 
@@ -243,7 +243,7 @@ The **PageIndex API** takes a PDF file and builds a **hierarchical tree** of sec
 Here is what happens under the hood:
 
 1. **`submit_document(PDF_PATH)`** — uploads the PDF to PageIndex and returns a `doc_id`. PageIndex begins parsing the document in the background.
-2. **`is_retrieval_ready(doc_id)`** — we poll this until the tree is built. For a document like our earnings release (41 pages), this typically takes 30–60 seconds. For larger documents (100+ pages), it can take a few minutes.
+2. **`is_retrieval_ready(doc_id)`** — we poll this until the tree is built. For a document like our ISS factsheet (11 pages), this typically takes 30–60 seconds. For larger documents (100+ pages), it can take a few minutes.
 3. **`get_tree(doc_id, node_summary=True)`** — retrieves the fully built tree. The `node_summary=True` flag tells PageIndex to generate an LLM-written summary for each node. These summaries are what the retrieval-time LLM reads — not the raw text.
 
 The resulting tree is a nested JSON structure. The **root node** represents the entire document. **Child nodes** represent sections and subsections, each with its own page range and summary. This hierarchical structure lets the LLM narrow down from broad sections to specific pages — without ever embedding a single vector.
@@ -309,7 +309,7 @@ Define the question you want to ask about the document. The LLM will use the **t
 
 This is a simple but critical step. The `QUERY` variable holds the natural-language question that drives the entire retrieval pipeline. In a production system, this would come from a user interface or an API call. Here, we hardcode it for simplicity — but the pipeline works the same way regardless of how the question is provided.
 
-The question you ask determines which nodes the LLM will select from the tree. For example, asking about "total revenue" will cause the LLM to look for nodes whose summaries mention financial results, revenue figures, or income statements. Asking about "risk factors" would steer it toward a completely different branch of the tree. This is the power of **reasoning-based retrieval** — the LLM understands the semantics of your question and matches it against the summaries, not against keyword overlaps or vector similarities.
+The question you ask determines which nodes the LLM will select from the tree. For example, asking about "purpose of the ISS" will cause the LLM to look for nodes whose summaries mention the station's mission, objectives, or research goals. Asking about "station modules" would steer it toward a completely different branch of the tree. This is the power of **reasoning-based retrieval** — the LLM understands the semantics of your question and matches it against the summaries, not against keyword overlaps or vector similarities.
 
 ```python
 QUERY = "What is the purpose of the International Space Station?"
