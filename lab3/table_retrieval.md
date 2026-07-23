@@ -163,6 +163,9 @@ import pageindex.utils as utils
 
 # LangChain's AWS Bedrock wrapper
 from langchain_aws import ChatBedrockConverse
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, uncomment the line below ---
+# from langchain_openai import AzureChatOpenAI
 ```
 
 ## Add Your Keys
@@ -175,6 +178,11 @@ os.environ["AWS_ENDPOINT_URL"]      = "https://api.enterprisesi.co/api/v1/aws-ge
 os.environ["AWS_REGION"]            = "ap-south-1"
 
 print("Credentials configured.")
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, comment out the AWS block
+# above and uncomment the two lines below (only the API key and endpoint are needed) ---
+# os.environ["AZURE_OPENAI_API_KEY"]  = "YOUR_AZURE_OPENAI_API_KEY"
+# os.environ["AZURE_OPENAI_ENDPOINT"] = "YOUR_AZURE_OPENAI_ENDPOINT"
 
 # --- Load PageIndex API Key ---
 PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
@@ -255,6 +263,14 @@ llm = ChatBedrockConverse(
     model="global.amazon.nova-2-lite-v1:0",
     temperature=0.1  # Kept low so answers stay precise, not creative
 )
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, comment out the block above
+# and uncomment the block below ---
+# llm = AzureChatOpenAI(
+#     azure_deployment="gpt-5-mini",   # your Azure deployment name for gpt-5-mini
+#     api_version="2024-12-01-preview",
+#     temperature=0.1
+# )
 ```
 
 Temperature is kept low so the model sticks to the actual numbers instead of rounding or guessing.
