@@ -360,6 +360,8 @@ flowchart LR
 
 #### Search the Tree
 
+The LLM reads the slim tree (titles + summaries only) and returns a JSON with its reasoning (`thinking`) and the relevant node IDs (`node_list`). A regex fallback handles cases where the LLM wraps JSON in extra text.
+
 ```python
 # Strip full text from tree — LLM only needs titles + summaries to pick relevant nodes
 tree_slim = utils.remove_fields(tree.copy(), fields=["text"])
@@ -448,6 +450,8 @@ flowchart LR
 
 #### Extract Text from PDF
 
+Uses PyMuPDF to extract raw text from each page of the PDF. Returns a dictionary mapping page numbers (1-based) to their text content.
+
 ```python
 # Open the PDF and extract text from each page using PyMuPDF
 doc = pymupdf.open(PDF_PATH)
@@ -457,6 +461,8 @@ print(f"Extracted text from {len(page_texts)} pages.")
 ```
 
 #### Build Context
+
+Collects text from pages covered by the LLM's selected nodes, deduplicates pages, and joins them into a single context string for the final answer.
 
 ```python
 # Collect text from pages covered by retrieved nodes (deduplicating pages)
