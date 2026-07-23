@@ -362,6 +362,7 @@ Give a direct, interpreted answer in plain language, the way an analyst would ex
 to someone in a meeting — not a mechanical calculation. Consider seasonality and other
 relevant signals in the context (like backlog or order trends) rather than just scaling
 one quarter's number by 4.
+Be concise in answering.
 
 Context:
 {labeled_context}
