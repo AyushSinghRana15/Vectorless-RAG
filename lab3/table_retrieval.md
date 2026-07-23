@@ -58,8 +58,8 @@ flowchart TD
 flowchart TD
     Root[Document Tree]
     Root --> S1[Section 1]
-    Root --> Tab1[Table Node 1:<br/>Consolidated Balance Sheet]
-    Root --> Tab2[Table Node 2:<br/>Homebuilding Operational Data]
+    Root --> Tab1[Table Node 1:<br/>Balance Sheet]
+    Root --> Tab2[Table Node 2:<br/>Income Statement]
     Root --> S3[Section 3]
 
     Tab1 -.->|Retrieved directly,<br/>kept fully intact| Combine[Combine the tables<br/>to answer the question]
@@ -92,7 +92,7 @@ flowchart LR
 
 A plain, accurate answer built directly from the numbers in the relevant table(s), with every figure tagged to the table it came from. For example:
 
-> _"Total revenue for the three months ended March 31, 2025 was $XXX million. [Table 1]"_
+> _"The figure you asked about was found directly in the table — for example, $XXX million. [Table 1]"_
 
 Along with the answer, the lab also prints:
 - **A list of the tables it checked**, in the order they were found
@@ -144,26 +144,28 @@ The cell below installs all required Python packages:
 | `requests` | Downloads the PDF from a link |
 
 ```python
-# Install our required libraries.
-# We use PageIndex to keep tables intact, and LangChain's AWS Bedrock wrapper for the LLM.
+# Install the required libraries
 !pip install pageindex langchain-aws boto3 requests
 ```
 
 ## Import Libraries
 
 ```python
-# Import core modules
+# Core modules
 import os
 import time
 import re
 import requests
 
-# Import PageIndex for vectorless retrieval
+# PageIndex client for vectorless retrieval
 from pageindex import PageIndexClient
 import pageindex.utils as utils
 
-# Import LangChain's AWS Bedrock wrapper
+# LangChain's AWS Bedrock wrapper
 from langchain_aws import ChatBedrockConverse
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, uncomment the line below ---
+# from langchain_openai import AzureChatOpenAI
 ```
 
 ## Add Your Keys
@@ -176,6 +178,11 @@ os.environ["AWS_ENDPOINT_URL"]      = "https://api.enterprisesi.co/api/v1/aws-ge
 os.environ["AWS_REGION"]            = "ap-south-1"
 
 print("Credentials configured.")
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, comment out the AWS block
+# above and uncomment the two lines below (only the API key and endpoint are needed) ---
+# os.environ["AZURE_OPENAI_API_KEY"]  = "YOUR_AZURE_OPENAI_API_KEY"
+# os.environ["AZURE_OPENAI_ENDPOINT"] = "YOUR_AZURE_OPENAI_ENDPOINT"
 
 # --- Load PageIndex API Key ---
 PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
@@ -205,7 +212,7 @@ import os
 # Paste the direct link to the Earnings Release PDF you want to analyze
 PDF_URL = "https://s21.q4cdn.com/736796105/files/doc_financials/2025/q4/Exhibit-99-1-Q4-2025-Earnings-Release.pdf"
 
-# Download it locally so we can hand a local path to PageIndex
+# Save the PDF locally so it can be handed to PageIndex
 os.makedirs("data", exist_ok=True)
 PDF_PATH = os.path.join("data", PDF_URL.split("/")[-1])
 
@@ -224,8 +231,7 @@ print(f"Downloaded the financial document to '{PDF_PATH}'")
 When the PDF is submitted to PageIndex, it maps out the document logically — and critically, tables are kept together as whole nodes instead of being chopped up by a fixed size.
 
 ```python
-# When we submit this to PageIndex, it maps out the document logically.
-# This means tables are kept together as whole "nodes" instead of being chopped up!
+# Submit the document — PageIndex keeps tables whole as single nodes
 doc_info = pi_client.submit_document(PDF_PATH)
 doc_id = doc_info["doc_id"]
 
@@ -245,19 +251,26 @@ print("Document Tree Structure:")
 utils.print_tree(tree)
 ```
 
-This prints the tree PageIndex built from the PDF — every section and table as a node, with a short summary. It's a good way to confirm the tables (Balance Sheet, Operational Data, Non-GAAP Reconciliation, and so on) each came through as their own clean node before asking any questions.
+This prints the tree PageIndex built from the PDF — every section and table as a node, with a short summary. It's a good way to confirm each table (balance sheets, income statements, reconciliation tables, and so on) came through as its own clean node before asking any questions.
 
 ---
 
 ### Step 3 — Set Up the LLM
 
 ```python
-# Initialize the Large Language Model via AWS Bedrock
-# For reading tables, larger models often perform better, but a smaller instruct model works well too!
+# Set up the LLM
 llm = ChatBedrockConverse(
     model="global.amazon.nova-2-lite-v1:0",
-    temperature=0.1  # Kept low so it doesn't get "creative" with financial numbers
+    temperature=0.1  # Kept low so answers stay precise, not creative
 )
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, comment out the block above
+# and uncomment the block below ---
+# llm = AzureChatOpenAI(
+#     azure_deployment="gpt-5-mini",   # your Azure deployment name for gpt-5-mini
+#     api_version="2024-12-01-preview",
+#     temperature=0.1
+# )
 ```
 
 Temperature is kept low so the model sticks to the actual numbers instead of rounding or guessing.
@@ -344,7 +357,7 @@ def retrieve_from_pageindex(query, doc_id, top_k=2):
 
 ```python
 def vectorless_rag(query, doc_id):
-    # Get the preserved table data, tagged with table number, node id, and pages
+    # Retrieve tables tagged with their number, node id, and pages
     tables = retrieve_from_pageindex(query, doc_id)
 
     if not tables:
@@ -355,21 +368,22 @@ def vectorless_rag(query, doc_id):
         f"[Table {t['table_number']} - {t['section']}]\n{t['text']}" for t in tables
     )
 
-    # Prompt updated to handle structured data carefully, and to cite which
-    # table each fact came from -- this is what powers the explainability report
+    # Ask the LLM to answer using only the tables, citing each value's table
     prompt = f"""
-You are a financial data analyst. Answer the question ONLY using the provided text/tables below.
-Pay strict attention to table rows, columns, and footnotes. Do not round numbers unless asked.
+You are a data analyst. Answer the question ONLY using the provided text/tables below.
+Pay strict attention to table rows, columns, and footnotes. Do not round or approximate values unless asked.
 
 CRITICAL INSTRUCTIONS:
-- Every number you use MUST be tagged with its table, like this: [Table 1]
-- If you use numbers from more than one table, tag each one separately.
+- Every value you use MUST be tagged with its table, like this: [Table 1]
+- If you use values from more than one table, tag each one separately.
 - If the data is not in the text, say "Not found in document."
 
 Context:
 {labeled_context}
 
 Question: {query}
+
+Be concise in your answer.
 """
 
     response = llm.invoke(prompt)
@@ -378,19 +392,18 @@ Question: {query}
     return final_answer, tables, labeled_context
 ```
 
-This ties it together — it calls the retrieval function, labels each table clearly in the context (e.g. `[Table 1 - Consolidated Balance Sheets]`), and tells the LLM to tag every number it uses with the table it came from. That tag is what makes the explainability check in the next step possible, without needing another LLM call just to figure out what was used.
+This ties it together — it calls the retrieval function, labels each table clearly in the context (e.g. `[Table 1 - Balance Sheet]`), and tells the LLM to tag every number it uses with the table it came from. That tag is what makes the explainability check in the next step possible, without needing another LLM call just to figure out what was used.
 
 ---
 
 ### Step 6 — Ask a Table-Specific Question
 
 ```python
-# Let's ask a question that requires the LLM to look at a specific row and column in a financial table.
-# (You can change this query based on the exact contents of your Earnings Release PDF)
-query = "What was the total revenue for the three months ended March 31, 2025?"
+# Ask a question that needs a specific row and column from a table
+query = "Looking at the Commodity Data within the Summary of Rail Data, what was the total freight revenue for Automotive for the year ended December 31, 2025, compared to 2024, and what was the percentage change?"
 ```
 
-A good test question, because the answer lives in exactly one table (Consolidated Statements of Operations) — a clean, single-table lookup.
+A good test question, because the answer lives in exactly one table — a clean, single-table lookup.
 
 ```python
 print(f"Question: {query}\n")
@@ -404,7 +417,6 @@ print("--- TABLES SEARCHED ---")
 for t in tables:
     print(f"Table {t['table_number']}: {t['section']}")
 
-# Print the accurate financial number
 print("\n--- FINAL ANSWER ---")
 print(final_answer)
 ```
@@ -430,7 +442,7 @@ for t in tables:
     print(f"\nTable {t['table_number']}: \"{t['section']}\"")
     print(f"node_id: {t['node_id']} | page(s): {pages} | {status}")
 
-    # Ask the LLM why this table is relevant and how it connects to the question, using the actual numbers in the table.
+    # Ask the LLM to explain why this table is relevant
     explain_prompt = f"""
 In 3-4 short lines, explain why the table below is relevant to the question.
 Be specific -- mention the actual numbers or rows in the table that connect to the question.

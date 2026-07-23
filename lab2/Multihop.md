@@ -15,7 +15,7 @@ This lab handles exactly that. Instead of stopping at the first matching section
 3. **Answer with proof** — The LLM combines everything it found into one answer, and for every section it used, it also explains *why* that section mattered.
 
 This is useful for things like:
-- **Earnings reports** — comparing GAAP numbers to adjusted numbers, which usually sit in separate tables
+- **Earnings reports** — comparing one figure to a related, adjusted version of it that lives in a separate table
 - **Contracts** — where one section changes the meaning of a definition written somewhere else
 - **Any question that needs pieces from more than one place in a document**
 
@@ -99,7 +99,7 @@ flowchart LR
 
 A clear, plain-language answer that pulls from **more than one part** of the document, plus a full trail of where everything came from. For example:
 
-> _"GAAP net income went down from $XXX million in Q1 2024 to $XXX million in Q1 2025. But adjusted net income actually went up — the GAAP number was pulled down by a one-time charge that adjusted net income leaves out."_
+> _"Metric A went down from X in one period to Y in the next. But metric B — a related figure from a separate section — actually went up, because it accounts for something metric A doesn't."_
 
 Along with the answer, the lab also prints:
 - **A list of the sections it checked**, in the order it checked them
@@ -123,7 +123,7 @@ Along with the answer, the lab also prints:
 
 In a single-hop setup, the search picks just one or two relevant sections and answers from those. This lab goes a step further — it checks several top sections, one after another, and pulls useful text from each one before writing the answer. That's what "multi-hop" means here: hopping from section to section instead of stopping at the first good match.
 
-This matters for questions that simply can't be answered from one place. For example, comparing GAAP net income to adjusted net income needs numbers from two separate tables in the report. Checking just one section would only give half the answer.
+This matters for questions that simply can't be answered from one place. For example, comparing a figure to a related, adjusted version of it often needs numbers from two separate tables in the report. Checking just one section would only give half the answer.
 
 On top of that, this lab also explains itself. For every section it uses, it shows:
 - Where that section came from (name, page number)
@@ -152,25 +152,28 @@ First, install the packages this lab needs:
 | `requests` | Downloads the PDF from a link |
 
 ```python
-# Install PageIndex for vectorless hierarchical retrieval, LangChain AWS Bedrock for the LLM, and requests for downloading the file.
+# Install the required libraries
 !pip install pageindex langchain-aws boto3 requests
 ```
 
 ## Import Libraries
 
 ```python
-# Import core modules
+# Core modules
 import os
 import time
 import requests
 import re
 
-# Import PageIndex for vectorless retrieval
+# PageIndex client for vectorless retrieval
 from pageindex import PageIndexClient
 import pageindex.utils as utils
 
-# Import LangChain's AWS Bedrock wrapper
+# LangChain's AWS Bedrock wrapper
 from langchain_aws import ChatBedrockConverse
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, uncomment the line below ---
+# from langchain_openai import AzureChatOpenAI
 ```
 
 ## Add Your Keys
@@ -183,6 +186,11 @@ os.environ["AWS_ENDPOINT_URL"]      = "https://api.enterprisesi.co/api/v1/aws-ge
 os.environ["AWS_REGION"]            = "ap-south-1"
 
 print("Credentials configured.")
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, comment out the AWS block
+# above and uncomment the two lines below (only the API key and endpoint are needed) ---
+# os.environ["AZURE_OPENAI_API_KEY"]  = "YOUR_AZURE_OPENAI_API_KEY"
+# os.environ["AZURE_OPENAI_ENDPOINT"] = "YOUR_AZURE_OPENAI_ENDPOINT"
 
 # --- Load PageIndex API Key ---
 PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
@@ -210,7 +218,7 @@ This time, instead of already having the file saved, the lab downloads it direct
 # Paste the direct link to the PDF you want to analyze
 PDF_URL = "https://s21.q4cdn.com/736796105/files/doc_financials/2025/q4/Exhibit-99-1-Q4-2025-Earnings-Release.pdf"
 
-# Download it locally so we can hand a local path to PageIndex
+# Save the PDF locally so it can be handed to PageIndex
 os.makedirs("data", exist_ok=True)
 PDF_PATH = os.path.join("data", PDF_URL.split("/")[-1])
 
@@ -229,14 +237,13 @@ print(f"Downloaded the document to '{PDF_PATH}'")
 The PDF is sent to PageIndex, which reads it and organizes it into sections and sub-sections. This can take a little time, so the lab keeps checking until it's ready.
 
 ```python
-# Submit your local document to PageIndex.
-# It reads your financial document and organizes it into a logical tree (Sections, Tables, Text).
+# Submit the document to PageIndex — it builds a tree of sections, tables, and text
 doc_info = pi_client.submit_document(PDF_PATH)
 doc_id = doc_info["doc_id"]
 
 print(f"Document Submitted. Tracking ID: {doc_id}")
 
-# Polling loop: Wait for the document tree to finish building
+# Wait until the document tree finishes building
 print("Waiting for the document to be indexed...")
 while not pi_client.is_retrieval_ready(doc_id):
     print("Still processing... checking again in 5 seconds.")
@@ -258,12 +265,21 @@ This prints out the tree PageIndex built — every section and table, with a sho
 ### Step 3 — Set Up the LLM
 
 ```python
-# Initialize the Large Language Model via AWS Bedrock
+# Set up the LLM
 llm = ChatBedrockConverse(
     model="global.amazon.nova-2-lite-v1:0",
     temperature=0.0,
     max_tokens=300
 )
+
+# --- ALTERNATIVE: If using Azure OpenAI instead of AWS Bedrock, comment out the block above
+# and uncomment the block below ---
+# llm = AzureChatOpenAI(
+#     azure_deployment="gpt-5-mini",   # your Azure deployment name for gpt-5-mini
+#     api_version="2024-12-01-preview",
+#     temperature=0.0,
+#     max_tokens=300
+# )
 ```
 
 This is the model that will read whatever gets found and write both the final answer and the explanations for each section used.
@@ -293,7 +309,7 @@ def retrieve_from_pageindex(query, doc_id, top_k=5):
     if not retrieval_id:
         return []
 
-    # Polling loop with error handling and a slightly longer delay
+    # Poll until the search finishes, retrying on errors
     while True:
         try:
             retrieval = pi_client.get_retrieval(retrieval_id)
@@ -303,7 +319,7 @@ def retrieve_from_pageindex(query, doc_id, top_k=5):
             elif status == "failed":
                 return []
         except Exception as e:
-            # Catch temporary API rate limits (429s) or timeouts
+            # Retry on rate limits or timeouts
             print(f"API rate limit or timeout during polling. Retrying... ({e})")
 
         time.sleep(3)
@@ -357,17 +373,18 @@ def vectorless_rag(query, doc_id):
     labeled_context = "\n\n".join(h["text"] for h in hops)
 
     prompt = f"""
-You are a financial analyst. Answer the question below using only the context provided.
-Give a direct, interpreted answer in plain language, the way an analyst would explain it
-to someone in a meeting — not a mechanical calculation. Consider seasonality and other
-relevant signals in the context (like backlog or order trends) rather than just scaling
-one quarter's number by 4.
-Be concise in answering.
+You are a knowledgeable assistant. Answer the question below using only the context provided.
+Give a direct, interpreted answer in plain language, the way an expert would explain it
+to someone unfamiliar with the details — not a mechanical restatement of numbers. Consider
+any relevant patterns, trends, or context clues rather than making a naive assumption
+based on a single data point.
 
 Context:
 {labeled_context}
 
 Question: {query}
+
+Be concise in your answer.
 """
 
     response = llm.invoke(prompt)
@@ -376,7 +393,7 @@ Question: {query}
     return final_answer, hops, labeled_context
 ```
 
-This brings it all together: it gets the text from every section that was checked, joins it into one block, and asks the LLM to explain the answer in plain language — the way an analyst would talk it through in a meeting, not just a raw calculation.
+This brings it all together: it gets the text from every section that was checked, joins it into one block, and asks the LLM for a direct, plain-language answer that considers relevant patterns and context rather than just restating numbers.
 
 ---
 
@@ -384,10 +401,10 @@ This brings it all together: it gets the text from every section that was checke
 
 ```python
 # The question we want to ask
-query = "How much did GAAP net income grow or shrink from Q1 2024 to Q1 2025? Separately, what was adjusted net income (not adjusted EBITDA) for both periods, and does it tell a different story?"
+query = "What is CPKC's financial guidance for the full-year 2026 regarding core adjusted diluted EPS growth, volume growth, and capital expenditures?"
 ```
 
-This question needs two different numbers from two different parts of the report — one from the GAAP results, one from the adjusted (non-GAAP) numbers — which makes it a good fit for this lab.
+This kind of question — asking about several different figures at once — is a good fit for this lab, since the answer may need pulling context from more than one part of the report.
 
 ```python
 print(f"Question: {query}\n")
@@ -396,12 +413,10 @@ print("Navigating document tree and generating answer...\n")
 # Run the pipeline
 final_answer, hops, labeled_context = vectorless_rag(query, doc_id)
 
-# --- SECTIONS SEARCHED (RETRIEVAL TRACE) ---
 print("--- SECTIONS SEARCHED (RETRIEVAL TRACE) ---")
 for hop in hops:
     print(f"Hop {hop['hop_number']}: {hop['section']}")
 
-# --- FINAL ANSWER ---
 print("\n--- FINAL ANSWER ---")
 print(final_answer)
 ```
@@ -419,9 +434,7 @@ print("\n--- EXPLAINABILITY ---")
 for hop in hops:
     pages = ", ".join(str(p) for p in hop["pages"]) if hop["pages"] else "unknown"
 
-    # A basic heuristic check to see if the section name was mentioned.
-    # Note: For strict citation tracking, you would need to update
-    # the vectorless_rag prompt to force the LLM to output [Hop X] tags.
+    # Simple check: does the section name appear in the final answer?
     was_used = hop["section"] in final_answer
 
     status = "LIKELY USED in answer" if was_used else "retrieved context"
@@ -429,11 +442,7 @@ for hop in hops:
     print(f"\nHop {hop['hop_number']}: \"{hop['section']}\"")
     print(f"node_id: {hop['node_id']} | page(s): {pages} | {status}")
 
-    # Ask the LLM directly, right here, why this hop is relevant --
-    # no helper function, built inline for each hop.
-    # Note: this is a generated explanation, not PageIndex's internal
-    # scoring (the API doesn't expose that), but it's grounded in the
-    # actual retrieved content, not made up.
+    # Ask the LLM to explain why this hop matters
     explain_prompt = f"""
 In 3-4 short lines, explain why the section below is relevant to the question.
 Be specific -- mention the actual numbers or facts in the section that connect to the question.
