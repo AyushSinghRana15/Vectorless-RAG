@@ -202,6 +202,8 @@ print("Credentials configured.")
 
 ## Load PageIndex API Key
 
+PageIndex is the document parsing service that builds the hierarchical tree from your PDF. You need a free API key to use it. Sign up at [pageindex.ai](https://pageindex.ai) to get your key, then paste it when prompted by the cell below. The key is stored as an environment variable so the PageIndex client can authenticate.
+
 ```python
 PAGEINDEX_API_KEY = input("Enter your PageIndex API key (get one at https://pageindex.ai): ").strip()
 os.environ["PAGEINDEX_API_KEY"] = PAGEINDEX_API_KEY
