@@ -219,7 +219,7 @@ print("PageIndex key loaded.")
 
 ### `call_llm(prompt, model)`
 
-Sends a prompt to the LLM via AWS Bedrock and returns the response text. Uses LangChain's **`ChatBedrockConverse`** which wraps the Bedrock Converse API and handles authentication via the environment variables set above. Uses **Amazon Nova Lite v1** (`global.amazon.nova-2-lite-v1:0`) by default with **`temperature=0`** for deterministic output.
+This cell defines a reusable function that sends a prompt to the LLM via AWS Bedrock and returns the response text. It uses LangChain's **`ChatBedrockConverse`** which wraps the Bedrock Converse API and handles authentication via the environment variables set above. It uses **Amazon Nova Lite v1** (`global.amazon.nova-2-lite-v1:0`) by default with **`temperature=0`** for deterministic output.
 
 ```python
 def call_llm(prompt, model="global.amazon.nova-2-lite-v1:0"):
