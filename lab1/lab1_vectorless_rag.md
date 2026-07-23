@@ -404,7 +404,7 @@ except json.JSONDecodeError:
 
 #### Map Nodes to Page Numbers
 
-The LLM returns **node IDs** (e.g. `0000`, `0001`), but we need to know which **pages** those nodes correspond to. This step is required because the next cell extracts text from PDF pages — and it needs **page numbers**, not node IDs.
+This cell maps the LLM's selected node IDs to their page numbers using `create_node_mapping()`. It displays the LLM's reasoning and which nodes it selected along with their page ranges.
 
 ```python
 # Map node IDs to their metadata (title, page range, etc.)
@@ -484,7 +484,7 @@ print(f"Using {len(context.splitlines())} lines of text.")
 
 #### Generate Answer
 
-Send the extracted text (**context**) along with the question to the LLM. The prompt instructs the LLM to answer only from the provided context and be concise.
+This cell sends the extracted text (context) along with the question to the LLM. The prompt instructs the LLM to answer only from the provided context and be concise.
 
 ```python
 # Send the extracted text + question to the LLM for the final answer.
